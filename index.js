@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require("@google/genai");
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -15,8 +15,7 @@ const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
 });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
@@ -76,8 +75,11 @@ async function handleEvent(event) {
       '  "note": "brief reason for this guess"\n' +
       '}';
 
-    const result = await model.generateContent(prompt);
-    const raw = result.response.text().trim().replace(/```json|```/g).trim();
+    const result = await genAI.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+    const raw = result.text.trim().replace(/```json|```/g, '').trim();
     const info = JSON.parse(raw);
 
     pendingPlaces[userId] = {
