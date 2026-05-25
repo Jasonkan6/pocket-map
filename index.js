@@ -167,10 +167,10 @@ async function tryGeocode(query) {
   const data = await res.json();
   const r = data.results?.[0];
   if (
-    r &&
-    !r.partial_match &&
-    r.geometry.location_type !== 'APPROXIMATE'
-  ) {
+  r &&
+  r.geometry.location_type !== 'APPROXIMATE'
+) {
+
     return { ok: true, lat: r.geometry.location.lat, lng: r.geometry.location.lng };
   }
   return {
