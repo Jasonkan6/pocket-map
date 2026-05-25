@@ -24,6 +24,42 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 const pendingPlaces = {};
 
+// Batch upload 狀態管理
+const batchState = {};
+// 結構: { [userId]: { total: 數, success: 數, failed: 數, timer: 計時器 } }
+
+function trackBatch(userId) {
+  if (!batchState[userId]) {
+    batchState[userId] = { total: 0, success: 0, failed: 0, timer: null };
+  }
+  const state = batchState[userId];
+  state.total += 1;
+
+  // 每次收到新圖，重置 3 秒計時器
+  if (state.timer) clearTimeout(state.timer);
+  state.timer = setTimeout(async () => {
+    const finalState = batchState[userId];
+    if (!finalState) return;
+
+    if (finalState.total > 1) {
+      await client.pushMessage({
+        to: userId,
+        messages: [{
+          type: 'text',
+          text: '🎉 完成！成功儲存 ' + finalState.success + '/' + finalState.total + ' 個地點'
+            + (finalState.failed > 0 ? '\n⚠️ ' + finalState.failed + ' 個失敗或略過' : '')
+        }],
+      });
+    }
+    delete batchState[userId];
+  }, 3000);
+
+  return state;
+}
+
+
+
+
 app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
   res.sendStatus(200);
   const events = req.body.events;
@@ -89,136 +125,118 @@ async function handleEvent(event) {
 }
 
 async function handleImage(event, userId) {
+  // 1. 加入 batch 計數
+  const batch = trackBatch(userId);
+  const idx = batch.total;
+
   try {
-    // 1. 取得或建立 user，拿到 UUID
+    // 2. 取得或建立 user
     const userUuid = await getOrCreateUser(userId);
 
-    // 2. 下載 LINE 圖片
+    // 3. 下載 LINE 圖片
     const imageBuffer = await downloadLineImage(event.message.id);
 
-    // 3. 上傳到 Supabase Storage
-    const fileName = 'screenshot_' + userId + '_' + Date.now() + '.jpg';
+    // 4. 上傳到 Supabase Storage
+    const fileName = 'screenshot_' + userId + '_' + Date.now() + '_' + idx + '.jpg';
     const { error: uploadError } = await supabase.storage
       .from('screenshots')
       .upload(fileName, imageBuffer, { contentType: 'image/jpeg' });
-
     if (uploadError) throw uploadError;
 
-    // 4. 取得公開 URL
     const { data: urlData } = supabase.storage
       .from('screenshots')
       .getPublicUrl(fileName);
     const imageUrl = urlData.publicUrl;
 
-    // 5. 回覆等待訊息
-    await client.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{ type: 'text', text: 'Analyzing screenshot... please wait.' }],
-    });
-
-    // 6. 傳給 Gemini Vision 分析
+    // 5. Gemini 分析
     const base64Image = imageBuffer.toString('base64');
-
     const result = await genAI.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              inlineData: {
-                mimeType: 'image/jpeg',
-                data: base64Image,
-              },
-            },
-            {
-              text:
-                'This is a screenshot from Instagram or Threads showing a place (restaurant, cafe, attraction, etc.).\n' +
-                'Extract the place information from the image. Keep the place name and address in their original language (Traditional Chinese if applicable).\n' +
-                'Reply ONLY with this JSON format, no extra text or markdown:\n\n' +
-                '{\n' +
-                '  "name": "place name in original language",\n' +
-                '  "category": "food|cafe|attraction|accommodation|other",\n' +
-                '  "region": "north|central|south|east|unknown",\n' +
-                '  "address": "full address if visible in the image, or empty string",\n' +
-                '  "note": "brief description of the place"\n' +
-                '}',
-            },
-          ],
-        },
-      ],
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+          { text:
+            'This is a screenshot from Instagram or Threads showing a place (restaurant, cafe, attraction, etc.).\n' +
+            'Extract the place information from the image. Keep the place name and address in their original language (Traditional Chinese if applicable).\n' +
+            'Reply ONLY with this JSON format, no extra text or markdown:\n\n' +
+            '{\n' +
+            '  "name": "place name in original language",\n' +
+            '  "category": "food|cafe|attraction|accommodation|other",\n' +
+            '  "region": "north|central|south|east|unknown",\n' +
+            '  "address": "full address if visible in the image, or empty string",\n' +
+            '  "note": "brief description of the place"\n' +
+            '}'
+          },
+        ],
+      }],
     });
 
     const raw = result.text.trim().replace(/```json|```/g, '').trim();
-    const info = JSON.parse(raw);
+    let info;
+    try {
+      info = JSON.parse(raw);
+    } catch {
+      throw new Error('AI 解析失敗');
+    }
 
-    // 7. 暫存待確認（saved_by 用 UUID）
-    // 地址轉座標
-    // 地址轉座標（含 fallback：地址失敗時用店名再試）
-let lat = null, lng = null;
+    // 6. Geocoding
+    let lat = null, lng = null;
+    async function tryGeocode(query) {
+      const url =
+        'https://maps.googleapis.com/maps/api/geocode/json?address=' +
+        encodeURIComponent(query + ' 台灣') +
+        '&key=' + process.env.GOOGLE_MAPS_KEY;
+      const res = await fetch(url);
+      const data = await res.json();
+      const r = data.results?.[0];
+      if (r && r.geometry.location_type !== 'APPROXIMATE') {
+        return { lat: r.geometry.location.lat, lng: r.geometry.location.lng };
+      }
+      return null;
+    }
+    if (info.address) {
+      const r1 = await tryGeocode(info.address);
+      if (r1) { lat = r1.lat; lng = r1.lng; }
+    }
+    if (lat === null && info.name) {
+      const r2 = await tryGeocode(info.name);
+      if (r2) { lat = r2.lat; lng = r2.lng; }
+    }
 
-async function tryGeocode(query) {
-  const url =
-    'https://maps.googleapis.com/maps/api/geocode/json?address=' +
-    encodeURIComponent(query + ' 台灣') +
-    '&key=' + process.env.GOOGLE_MAPS_KEY;
-  const res = await fetch(url);
-  const data = await res.json();
-  const r = data.results?.[0];
-  console.log('Geocoding', query, '→', data.status, r?.geometry.location_type, 'partial=', r?.partial_match);
-  if (r && r.geometry.location_type !== 'APPROXIMATE') {
-    return { lat: r.geometry.location.lat, lng: r.geometry.location.lng };
-  }
-  return null;
-}
+    // 7. 直接存入 Supabase（不需要 OK 確認）
+    const { error: insertError } = await supabase.from('places').insert([{
+      name: info.name,
+      category: info.category,
+      region: info.region,
+      note: info.note,
+      address: info.address,
+      image_url: imageUrl,
+      source_type: 'screenshot',
+      saved_by: userUuid,
+      status: 'want-to-go',
+      lat,
+      lng,
+    }]);
+    if (insertError) throw insertError;
 
-try {
-  if (info.address) {
-    const r1 = await tryGeocode(info.address);
-    if (r1) { lat = r1.lat; lng = r1.lng; }
-  }
-  if (lat === null && info.name) {
-    const r2 = await tryGeocode(info.name);
-    if (r2) { lat = r2.lat; lng = r2.lng; }
-  }
-} catch (e) {
-  console.error('Geocoding error:', e);
-}
-
-pendingPlaces[userId] = {
-  name: info.name,
-  category: info.category,
-  region: info.region,
-  note: info.note,
-  address: info.address,
-  image_url: imageUrl,
-  source_type: 'screenshot',
-  saved_by: userUuid,
-  status: 'want-to-go',
-  lat,
-  lng,
-};
-
-
-    const replyMsg =
-      '📍 地點資訊：\n\n' +
-      '名稱：' + info.name + '\n' +
-      '類型：' + info.category + '\n' +
-      '地區：' + info.region + '\n' +
-      '地址：' + (info.address || '—') + '\n' +
-      '備註：' + info.note + '\n\n' +
-      '回覆「OK」儲存，或直接告訴我要修改的資訊。';
-
+    // 8. 回報這張圖的結果
+    batch.success += 1;
     await client.pushMessage({
       to: userId,
-      messages: [{ type: 'text', text: replyMsg }],
+      messages: [{
+        type: 'text',
+        text: '[' + idx + '] ✅ ' + info.name + '（' + info.category + '/' + info.region + '）'
+          + (lat === null ? '\n⚠️ 找不到座標' : '')
+      }],
     });
 
   } catch (err) {
-    console.error(err);
+    batch.failed += 1;
+    console.error('handleImage error:', err);
     await client.pushMessage({
       to: userId,
-      messages: [{ type: 'text', text: '❌ Error: ' + err.message }],
+      messages: [{ type: 'text', text: '[' + idx + '] ❌ 失敗：' + err.message }],
     });
   }
 }
