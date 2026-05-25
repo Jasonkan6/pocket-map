@@ -151,20 +151,27 @@ async function handleImage(event, userId) {
       messages: [{ type: 'text', text: replyMsg }],
     });
 
-  } catch (err) {
+    } catch (err) {
     console.error(err);
     await client.pushMessage({
       to: userId,
-      messages: [{ type: 'text', text: 'Analysis failed. Please try again.' }],
+      messages: [{ type: 'text', text: '❌ Error: ' + err.message + '\n\n' + (err.stack || '') }],
     });
+  }
+
   }
 }
 
 async function downloadLineImage(messageId) {
-  const response = await blobClient.getMessageContent(messageId);
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  const stream = await blobClient.getMessageContent(messageId);
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
 }
+
 
 
 app.get('/', (req, res) => res.send('Pocket Map Bot is running!'));
