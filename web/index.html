@@ -37,7 +37,11 @@
       transform: translateY(100%);
       transition: transform 0.3s ease;
       z-index: 100;
+      max-height: 80vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
+
     #sheet.open { transform: translateY(0); }
     .sheet-handle {
       width: 40px; height: 4px; background: #ddd;
@@ -60,10 +64,11 @@
       line-height: 1.5;
     }
     #sheet-image {
-      width: 100%; max-height: 240px;
-      object-fit: cover; border-radius: 12px;
+      width: 100%; height: auto;
+      border-radius: 12px;
       margin-bottom: 16px; display: none;
     }
+
 
     #sheet-link {
       display: block; text-align: center;
