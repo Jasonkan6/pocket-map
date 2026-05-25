@@ -153,17 +153,38 @@ async function handleImage(event, userId) {
     const info = JSON.parse(raw);
 
     // 7. 暫存待確認（saved_by 用 UUID）
-    pendingPlaces[userId] = {
-      name: info.name,
-      category: info.category,
-      region: info.region,
-      note: info.note,
-      address: info.address,
-      image_url: imageUrl,
-      source_type: 'screenshot',
-      saved_by: userUuid,
-      status: 'want-to-go',
-    };
+    // 地址轉座標
+let lat = null, lng = null;
+const query = info.address || info.name;
+try {
+  const geoRes = await fetch(
+    'https://maps.googleapis.com/maps/api/geocode/json?address=' +
+    encodeURIComponent(query + ' 台灣') +
+    '&key=' + process.env.GOOGLE_MAPS_KEY
+  );
+  const geoData = await geoRes.json();
+  if (geoData.results && geoData.results.length > 0) {
+    lat = geoData.results[0].geometry.location.lat;
+    lng = geoData.results[0].geometry.location.lng;
+  }
+} catch (e) {
+  console.error('Geocoding failed:', e);
+}
+
+pendingPlaces[userId] = {
+  name: info.name,
+  category: info.category,
+  region: info.region,
+  note: info.note,
+  address: info.address,
+  image_url: imageUrl,
+  source_type: 'screenshot',
+  saved_by: userUuid,
+  status: 'want-to-go',
+  lat,
+  lng,
+};
+
 
     const replyMsg =
       '📍 地點資訊：\n\n' +
