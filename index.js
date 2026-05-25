@@ -3,7 +3,6 @@ const express = require('express');
 const line = require('@line/bot-sdk');
 const { GoogleGenAI } = require("@google/genai");
 const { createClient } = require('@supabase/supabase-js');
-const axios = require('axios');
 
 const app = express();
 
@@ -15,6 +14,7 @@ const lineConfig = {
 const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
 });
+
 const blobClient = new line.messagingApi.MessagingApiBlobClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
 });
@@ -31,6 +31,18 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
     await handleEvent(event);
   }
 });
+
+async function getOrCreateUser(userId) {
+  // upsert user by line_user_id, return their UUID
+  const { data, error } = await supabase
+    .from('users')
+    .upsert({ line_user_id: userId }, { onConflict: 'line_user_id' })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return data.id;
+}
 
 async function handleEvent(event) {
   if (event.type !== 'message') return;
@@ -51,7 +63,16 @@ async function handleEvent(event) {
   if (text === 'OK') {
     const place = pendingPlaces[userId];
     if (!place) return;
-    await supabase.from('places').insert([place]);
+
+    const { error } = await supabase.from('places').insert([place]);
+    if (error) {
+      await client.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: '❌ Save failed: ' + error.message }],
+      });
+      return;
+    }
+
     delete pendingPlaces[userId];
     await client.replyMessage({
       replyToken: event.replyToken,
@@ -69,10 +90,13 @@ async function handleEvent(event) {
 
 async function handleImage(event, userId) {
   try {
-    // 1. 下載 LINE 圖片
+    // 1. 取得或建立 user，拿到 UUID
+    const userUuid = await getOrCreateUser(userId);
+
+    // 2. 下載 LINE 圖片
     const imageBuffer = await downloadLineImage(event.message.id);
 
-    // 2. 上傳到 Supabase Storage
+    // 3. 上傳到 Supabase Storage
     const fileName = 'screenshot_' + userId + '_' + Date.now() + '.jpg';
     const { error: uploadError } = await supabase.storage
       .from('screenshots')
@@ -80,22 +104,23 @@ async function handleImage(event, userId) {
 
     if (uploadError) throw uploadError;
 
-    // 3. 取得公開 URL
+    // 4. 取得公開 URL
     const { data: urlData } = supabase.storage
       .from('screenshots')
       .getPublicUrl(fileName);
     const imageUrl = urlData.publicUrl;
 
-    // 4. 傳給 Gemini Vision 分析
+    // 5. 回覆等待訊息
     await client.replyMessage({
       replyToken: event.replyToken,
       messages: [{ type: 'text', text: 'Analyzing screenshot... please wait.' }],
     });
 
+    // 6. 傳給 Gemini Vision 分析
     const base64Image = imageBuffer.toString('base64');
 
     const result = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [
         {
           role: 'user',
@@ -109,12 +134,13 @@ async function handleImage(event, userId) {
             {
               text:
                 'This is a screenshot from Instagram or Threads showing a place (restaurant, cafe, attraction, etc.).\n' +
-                'Extract the place information from the image.\n' +
+                'Extract the place information from the image. Keep the place name and address in their original language (Traditional Chinese if applicable).\n' +
                 'Reply ONLY with this JSON format, no extra text or markdown:\n\n' +
                 '{\n' +
-                '  "name": "place name",\n' +
+                '  "name": "place name in original language",\n' +
                 '  "category": "food|cafe|attraction|accommodation|other",\n' +
                 '  "region": "north|central|south|east|unknown",\n' +
+                '  "address": "full address if visible in the image, or empty string",\n' +
                 '  "note": "brief description of the place"\n' +
                 '}',
             },
@@ -126,39 +152,39 @@ async function handleImage(event, userId) {
     const raw = result.text.trim().replace(/```json|```/g, '').trim();
     const info = JSON.parse(raw);
 
-    // 5. 暫存待確認
+    // 7. 暫存待確認（saved_by 用 UUID）
     pendingPlaces[userId] = {
       name: info.name,
       category: info.category,
       region: info.region,
       note: info.note,
+      address: info.address,
       image_url: imageUrl,
       source_type: 'screenshot',
-      saved_by: userId,
+      saved_by: userUuid,
       status: 'want-to-go',
     };
 
     const replyMsg =
-      '📍 Place info:\n\n' +
-      'Name: ' + info.name + '\n' +
-      'Category: ' + info.category + '\n' +
-      'Region: ' + info.region + '\n' +
-      'Note: ' + info.note + '\n\n' +
-      'Reply "OK" to save, or correct any info.';
+      '📍 地點資訊：\n\n' +
+      '名稱：' + info.name + '\n' +
+      '類型：' + info.category + '\n' +
+      '地區：' + info.region + '\n' +
+      '地址：' + (info.address || '—') + '\n' +
+      '備註：' + info.note + '\n\n' +
+      '回覆「OK」儲存，或直接告訴我要修改的資訊。';
 
     await client.pushMessage({
       to: userId,
       messages: [{ type: 'text', text: replyMsg }],
     });
 
-    } catch (err) {
+  } catch (err) {
     console.error(err);
     await client.pushMessage({
       to: userId,
-      messages: [{ type: 'text', text: '❌ Error: ' + err.message + '\n\n' + (err.stack || '') }],
+      messages: [{ type: 'text', text: '❌ Error: ' + err.message }],
     });
-  
-
   }
 }
 
@@ -171,8 +197,6 @@ async function downloadLineImage(messageId) {
     stream.on('error', reject);
   });
 }
-
-
 
 app.get('/', (req, res) => res.send('Pocket Map Bot is running!'));
 
