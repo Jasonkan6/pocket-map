@@ -70,6 +70,17 @@
       font-size: 22px; color: #aaa; cursor: pointer;
       background: none; border: none;
     }
+        /* 定位按鈕 */
+    #locate-btn {
+      position: fixed; bottom: 32px; right: 16px;
+      width: 48px; height: 48px; border-radius: 50%;
+      background: #fff; border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      font-size: 22px; cursor: pointer; z-index: 50;
+    }
+
+    /* 載入中 */
+    #loading {
 
     /* 載入中 */
     #loading {
@@ -93,6 +104,8 @@
 </div>
 
 <div id="map"></div>
+<button id="locate-btn">📍</button>
+
 
 <div id="sheet">
   <div class="sheet-handle"></div>
@@ -158,6 +171,9 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     renderMarkers(allPlaces);
     document.getElementById('loading').style.display = 'none';
     setupFilters();
+    setupLocate();   // ← 加這行
+
+
   };
 
   // 渲染地標
@@ -212,6 +228,42 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
   document.getElementById('sheet-close').addEventListener('click', () => {
     document.getElementById('sheet').classList.remove('open');
   });
+    // 定位功能
+  function setupLocate() {
+    document.getElementById('locate-btn').addEventListener('click', locateMe);
+    locateMe();  // 開啟時自動定位
+  }
+
+  function locateMe() {
+    if (!navigator.geolocation) return;
+    const btn = document.getElementById('locate-btn');
+    btn.textContent = '⏳';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const me = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        map.setCenter(me);
+        map.setZoom(14);
+        btn.textContent = '📍';
+        if (window.myDot) window.myDot.setMap(null);
+        window.myDot = new google.maps.Marker({
+          position: me, map,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8, fillColor: '#4285F4', fillOpacity: 1,
+            strokeColor: '#fff', strokeWeight: 2,
+          },
+          title: '你在這裡', zIndex: 999,
+        });
+      },
+      () => {
+        btn.textContent = '📍';
+        alert('無法取得位置，請確認已允許定位權限。');
+      }
+    );
+  }
+
+  init().catch(console.error);
+
 
   init().catch(console.error);
 </script>
