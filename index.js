@@ -1,4 +1,4 @@
-喔喔喔require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
 const { GoogleGenAI } = require("@google/genai");
