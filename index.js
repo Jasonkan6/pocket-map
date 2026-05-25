@@ -26,35 +26,51 @@ const pendingPlaces = {};
 
 // Batch upload 狀態管理
 const batchState = {};
-// 結構: { [userId]: { total: 數, success: 數, failed: 數, timer: 計時器 } }
+// 結構: { [userId]: { total, processed, success, failed, timer, batchEnded } }
 
-function trackBatch(userId) {
+function startBatchEntry(userId) {
   if (!batchState[userId]) {
-    batchState[userId] = { total: 0, success: 0, failed: 0, timer: null };
+    batchState[userId] = {
+      total: 0,
+      processed: 0,
+      success: 0,
+      failed: 0,
+      timer: null,
+      batchEnded: false,
+    };
   }
   const state = batchState[userId];
   state.total += 1;
+  const myIdx = state.total;
 
-  // 每次收到新圖，重置 3 秒計時器
+  // 每次新圖進來，重置「批次結束」計時器
   if (state.timer) clearTimeout(state.timer);
-  state.timer = setTimeout(async () => {
-    const finalState = batchState[userId];
-    if (!finalState) return;
-
-    if (finalState.total > 1) {
-      await client.pushMessage({
-        to: userId,
-        messages: [{
-          type: 'text',
-          text: '🎉 完成！成功儲存 ' + finalState.success + '/' + finalState.total + ' 個地點'
-            + (finalState.failed > 0 ? '\n⚠️ ' + finalState.failed + ' 個失敗或略過' : '')
-        }],
-      });
-    }
-    delete batchState[userId];
+  state.timer = setTimeout(() => {
+    state.batchEnded = true;
+    maybeSendSummary(userId);
   }, 3000);
 
-  return state;
+  return { state, idx: myIdx };
+}
+
+async function maybeSendSummary(userId) {
+  const state = batchState[userId];
+  if (!state) return;
+  // 必須兩個條件都成立：批次結束 + 所有圖都處理完
+  if (!state.batchEnded) return;
+  if (state.processed < state.total) return;
+
+  if (state.total > 1) {
+    await client.pushMessage({
+      to: userId,
+      messages: [{
+        type: 'text',
+        text: '🎉 完成！成功儲存 ' + state.success + '/' + state.total + ' 個地點'
+          + (state.failed > 0 ? '\n⚠️ ' + state.failed + ' 個失敗或略過' : '')
+      }],
+    });
+  }
+  delete batchState[userId];
 }
 
 
@@ -126,8 +142,8 @@ async function handleEvent(event) {
 
 async function handleImage(event, userId) {
   // 1. 加入 batch 計數
-  const batch = trackBatch(userId);
-  const idx = batch.total;
+  const { state: batch, idx } = startBatchEntry(userId);
+
 
   try {
     // 2. 取得或建立 user
@@ -222,6 +238,7 @@ async function handleImage(event, userId) {
 
     // 8. 回報這張圖的結果
     batch.success += 1;
+    batch.processed += 1;
     await client.pushMessage({
       to: userId,
       messages: [{
@@ -230,15 +247,19 @@ async function handleImage(event, userId) {
           + (lat === null ? '\n⚠️ 找不到座標' : '')
       }],
     });
+    maybeSendSummary(userId);
 
-  } catch (err) {
+    } catch (err) {
     batch.failed += 1;
+    batch.processed += 1;
     console.error('handleImage error:', err);
     await client.pushMessage({
       to: userId,
       messages: [{ type: 'text', text: '[' + idx + '] ❌ 失敗：' + err.message }],
     });
+    maybeSendSummary(userId);
   }
+
 }
 
 async function downloadLineImage(messageId) {
