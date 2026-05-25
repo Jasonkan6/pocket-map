@@ -1,4 +1,4 @@
-require('dotenv').config();
+喔喔喔require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
 const { GoogleGenAI } = require("@google/genai");
@@ -241,10 +241,13 @@ app.get('/test-geocoding', async (req, res) => {
         status: data.status,
         error: data.error_message || null,
         result: data.results?.[0] ? {
-          formatted: data.results[0].formatted_address,
-          lat: data.results[0].geometry.location.lat,
-          lng: data.results[0].geometry.location.lng,
-        } : null,
+  formatted: data.results[0].formatted_address,
+  lat: data.results[0].geometry.location.lat,
+  lng: data.results[0].geometry.location.lng,
+  location_type: data.results[0].geometry.location_type,
+  partial_match: data.results[0].partial_match || false,
+} : null,
+
       });
     } catch (e) {
       results.push({ query, error: e.message });
