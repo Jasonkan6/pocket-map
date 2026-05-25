@@ -157,7 +157,7 @@ async function handleImage(event, userId) {
       to: userId,
       messages: [{ type: 'text', text: '❌ Error: ' + err.message + '\n\n' + (err.stack || '') }],
     });
-  }
+  
 
   }
 }
