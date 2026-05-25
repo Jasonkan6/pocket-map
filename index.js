@@ -15,6 +15,9 @@ const lineConfig = {
 const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
 });
+const blobClient = new line.messagingApi.MessagingApiBlobClient({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+});
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -158,15 +161,11 @@ async function handleImage(event, userId) {
 }
 
 async function downloadLineImage(messageId) {
-  const response = await axios.get(
-    '[https://api-data.line.me/v2/bot/message/](https://api-data.line.me/v2/bot/message/)' + messageId + '/content',
-    {
-      headers: { Authorization: 'Bearer ' + process.env.LINE_CHANNEL_ACCESS_TOKEN },
-      responseType: 'arraybuffer',
-    }
-  );
-  return Buffer.from(response.data);
+  const response = await blobClient.getMessageContent(messageId);
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
+
 
 app.get('/', (req, res) => res.send('Pocket Map Bot is running!'));
 
