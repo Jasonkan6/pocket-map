@@ -163,13 +163,19 @@ try {
     '&key=' + process.env.GOOGLE_MAPS_KEY
   );
   const geoData = await geoRes.json();
-  if (geoData.results && geoData.results.length > 0) {
-    lat = geoData.results[0].geometry.location.lat;
-    lng = geoData.results[0].geometry.location.lng;
+  const r = geoData.results?.[0];
+  if (
+    r &&
+    !r.partial_match &&
+    r.geometry.location_type !== 'APPROXIMATE'
+  ) {
+    lat = r.geometry.location.lat;
+    lng = r.geometry.location.lng;
   }
 } catch (e) {
   console.error('Geocoding failed:', e);
 }
+
 
 pendingPlaces[userId] = {
   name: info.name,
@@ -218,48 +224,7 @@ async function downloadLineImage(messageId) {
     stream.on('error', reject);
   });
 }
-app.get('/test-geocoding', async (req, res) => {
-  const testCases = [
-    { name: '鼎泰豐信義店', address: '台北市信義區市府路45號' },
-    { name: '興波咖啡 Simple Kaffa', address: '' },
-    { name: '阿宗麵線', address: '台北市萬華區峨眉街8-1號' },
-    { name: '不存在的假店名xyz123', address: '' },
-  ];
 
-  const results = [];
-  for (const tc of testCases) {
-    const query = tc.address || tc.name;
-    try {
-      const r = await fetch(
-        'https://maps.googleapis.com/maps/api/geocode/json?address=' +
-        encodeURIComponent(query + ' 台灣') +
-        '&key=' + process.env.GOOGLE_MAPS_KEY
-      );
-      const data = await r.json();
-      results.push({
-        query,
-        status: data.status,
-        error: data.error_message || null,
-        result: data.results?.[0] ? {
-  formatted: data.results[0].formatted_address,
-  lat: data.results[0].geometry.location.lat,
-  lng: data.results[0].geometry.location.lng,
-  location_type: data.results[0].geometry.location_type,
-  partial_match: data.results[0].partial_match || false,
-} : null,
-
-      });
-    } catch (e) {
-      results.push({ query, error: e.message });
-    }
-  }
-
-  res.json({
-    keyExists: !!process.env.GOOGLE_MAPS_KEY,
-    keyLength: process.env.GOOGLE_MAPS_KEY?.length,
-    results,
-  });
-});
 
 app.get('/', (req, res) => res.send('Pocket Map Bot is running!'));
 
