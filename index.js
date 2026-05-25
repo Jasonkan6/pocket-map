@@ -154,38 +154,72 @@ async function handleImage(event, userId) {
 
     // 7. 暫存待確認（saved_by 用 UUID）
     // 地址轉座標
+// 地址轉座標（含 fallback：地址失敗時用店名再試）
 let lat = null, lng = null;
-const query = info.address || info.name;
-let debugMsg = '🔍 Geocoding\nquery: ' + query + '\n';
-try {
-  const geoRes = await fetch(
+let debugMsg = '🔍 Geocoding\n';
+
+async function tryGeocode(query) {
+  const url =
     'https://maps.googleapis.com/maps/api/geocode/json?address=' +
     encodeURIComponent(query + ' 台灣') +
-    '&key=' + process.env.GOOGLE_MAPS_KEY
-  );
-  const geoData = await geoRes.json();
-  const r = geoData.results?.[0];
-  debugMsg += 'status: ' + geoData.status + '\n';
-  if (r) {
-    debugMsg += 'location_type: ' + r.geometry.location_type + '\n';
-    debugMsg += 'partial_match: ' + (r.partial_match || false) + '\n';
-  } else {
-    debugMsg += 'no results\n';
-  }
+    '&key=' + process.env.GOOGLE_MAPS_KEY;
+  const res = await fetch(url);
+  const data = await res.json();
+  const r = data.results?.[0];
   if (
     r &&
     !r.partial_match &&
     r.geometry.location_type !== 'APPROXIMATE'
   ) {
-    lat = r.geometry.location.lat;
-    lng = r.geometry.location.lng;
-    debugMsg += '✅ lat: ' + lat + ', lng: ' + lng;
+    return { ok: true, lat: r.geometry.location.lat, lng: r.geometry.location.lng };
+  }
+  return {
+    ok: false,
+    status: data.status,
+    location_type: r?.geometry.location_type,
+    partial_match: r?.partial_match,
+  };
+}
+
+try {
+  // 1. 先試地址
+  if (info.address) {
+    debugMsg += '[1] address: ' + info.address + '\n';
+    const r1 = await tryGeocode(info.address);
+    if (r1.ok) {
+      lat = r1.lat; lng = r1.lng;
+      debugMsg += '✅ matched by address\n';
+    } else {
+      debugMsg += '❌ rejected (' + (r1.location_type || r1.status) + ', partial=' + r1.partial_match + ')\n';
+    }
+  }
+
+  // 2. 地址失敗 fallback 用店名
+  if (lat === null && info.name) {
+    debugMsg += '[2] name: ' + info.name + '\n';
+    const r2 = await tryGeocode(info.name);
+    if (r2.ok) {
+      lat = r2.lat; lng = r2.lng;
+      debugMsg += '✅ matched by name\n';
+    } else {
+      debugMsg += '❌ rejected (' + (r2.location_type || r2.status) + ', partial=' + r2.partial_match + ')\n';
+    }
+  }
+
+  if (lat !== null) {
+    debugMsg += 'lat: ' + lat + ', lng: ' + lng;
   } else {
-    debugMsg += '❌ rejected';
+    debugMsg += '⚠️ 找不到座標，地圖上不會顯示';
   }
 } catch (e) {
   debugMsg += '❌ exception: ' + e.message;
 }
+
+await client.pushMessage({
+  to: userId,
+  messages: [{ type: 'text', text: debugMsg }],
+});
+
 
 await client.pushMessage({
   to: userId,
