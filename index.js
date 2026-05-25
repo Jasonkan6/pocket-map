@@ -156,6 +156,7 @@ async function handleImage(event, userId) {
     // 地址轉座標
 let lat = null, lng = null;
 const query = info.address || info.name;
+let debugMsg = '🔍 Geocoding\nquery: ' + query + '\n';
 try {
   const geoRes = await fetch(
     'https://maps.googleapis.com/maps/api/geocode/json?address=' +
@@ -164,6 +165,13 @@ try {
   );
   const geoData = await geoRes.json();
   const r = geoData.results?.[0];
+  debugMsg += 'status: ' + geoData.status + '\n';
+  if (r) {
+    debugMsg += 'location_type: ' + r.geometry.location_type + '\n';
+    debugMsg += 'partial_match: ' + (r.partial_match || false) + '\n';
+  } else {
+    debugMsg += 'no results\n';
+  }
   if (
     r &&
     !r.partial_match &&
@@ -171,10 +179,19 @@ try {
   ) {
     lat = r.geometry.location.lat;
     lng = r.geometry.location.lng;
+    debugMsg += '✅ lat: ' + lat + ', lng: ' + lng;
+  } else {
+    debugMsg += '❌ rejected';
   }
 } catch (e) {
-  console.error('Geocoding failed:', e);
+  debugMsg += '❌ exception: ' + e.message;
 }
+
+await client.pushMessage({
+  to: userId,
+  messages: [{ type: 'text', text: debugMsg }],
+});
+
 
 
 pendingPlaces[userId] = {
