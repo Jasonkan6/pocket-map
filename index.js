@@ -185,18 +185,6 @@ try {
   console.error('Geocoding error:', e);
 }
 
-
-
-
-
-
-await client.pushMessage({
-  to: userId,
-  messages: [{ type: 'text', text: debugMsg }],
-});
-
-
-
 pendingPlaces[userId] = {
   name: info.name,
   category: info.category,
@@ -245,56 +233,7 @@ async function downloadLineImage(messageId) {
   });
 }
 
-app.get('/test-geocoding', async (req, res) => {
-  const testCases = [
-    // 已知精確的案例（控制組）
-    { name: '鼎泰豐信義店', address: '台北市信義區市府路45號' },
-    // 之前 fail 的案例
-    { name: '九九峰動物園', address: '南投縣草屯鎮726巷99號坪頂里富頂路一段' },
-    // 只有店名，沒地址
-    { name: '九九峰動物園', address: '' },
-    { name: '九九峰動物樂園', address: '' },
-    // 假名（應該被擋掉）
-    { name: '不存在的假店名xyz123', address: '' },
-  ];
 
-  const results = [];
-  for (const tc of testCases) {
-    const out = { name: tc.name, address: tc.address, tries: [] };
-
-    // try 1: address
-    if (tc.address) {
-      const r = await geocodeOnce(tc.address);
-      out.tries.push({ by: 'address', query: tc.address, ...r });
-    }
-
-    // try 2: name (fallback)
-    const r2 = await geocodeOnce(tc.name);
-    out.tries.push({ by: 'name', query: tc.name, ...r2 });
-
-    results.push(out);
-  }
-  res.json({ keyLength: process.env.GOOGLE_MAPS_KEY?.length, results });
-});
-
-async function geocodeOnce(query) {
-  const url =
-    'https://maps.googleapis.com/maps/api/geocode/json?address=' +
-    encodeURIComponent(query + ' 台灣') +
-    '&key=' + process.env.GOOGLE_MAPS_KEY;
-  const r = await fetch(url);
-  const data = await r.json();
-  const top = data.results?.[0];
-  return {
-    status: data.status,
-    error: data.error_message || null,
-    formatted: top?.formatted_address || null,
-    lat: top?.geometry.location.lat || null,
-    lng: top?.geometry.location.lng || null,
-    location_type: top?.geometry.location_type || null,
-    partial_match: top?.partial_match || false,
-  };
-}
 
 app.get('/', (req, res) => res.send('Pocket Map Bot is running!'));
 
