@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pocket Map</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, sans-serif; height: 100dvh; display: flex; flex-direction: column; }
+
+    /* 篩選列 */
+    #filter-bar {
+      display: flex; gap: 8px; padding: 10px 12px;
+      overflow-x: auto; background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      z-index: 10; flex-shrink: 0;
+    }
+    #filter-bar::-webkit-scrollbar { display: none; }
+    .chip {
+      white-space: nowrap; padding: 6px 14px;
+      border-radius: 20px; border: 1.5px solid #ddd;
+      background: #fff; font-size: 13px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .chip.active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+
+    /* 地圖 */
+    #map { flex: 1; width: 100%; }
+
+    /* Bottom Sheet */
+    #sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      padding: 16px 20px 32px;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      z-index: 100;
+    }
+    #sheet.open { transform: translateY(0); }
+    .sheet-handle {
+      width: 40px; height: 4px; background: #ddd;
+      border-radius: 2px; margin: 0 auto 16px;
+    }
+    #sheet-category {
+      font-size: 12px; color: #888; margin-bottom: 4px;
+    }
+    #sheet-name {
+      font-size: 20px; font-weight: 700; margin-bottom: 6px;
+    }
+    #sheet-region {
+      font-size: 13px; color: #555; margin-bottom: 8px;
+    }
+    #sheet-address {
+      font-size: 13px; color: #555; margin-bottom: 8px;
+    }
+    #sheet-note {
+      font-size: 14px; color: #333; margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    #sheet-link {
+      display: block; text-align: center;
+      background: #1a73e8; color: #fff;
+      padding: 12px; border-radius: 12px;
+      text-decoration: none; font-size: 15px; font-weight: 600;
+    }
+    #sheet-close {
+      position: absolute; top: 14px; right: 16px;
+      font-size: 22px; color: #aaa; cursor: pointer;
+      background: none; border: none;
+    }
+
+    /* 載入中 */
+    #loading {
+      position: fixed; inset: 0; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: #555; z-index: 200;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">載入中...</div>
+
+<div id="filter-bar">
+  <div class="chip active" data-filter="all">全部</div>
+  <div class="chip" data-filter="food">🍜 美食</div>
+  <div class="chip" data-filter="cafe">☕ 咖啡廳</div>
+  <div class="chip" data-filter="attraction">🏛 景點</div>
+  <div class="chip" data-filter="accommodation">🏨 住宿</div>
+  <div class="chip" data-filter="other">📌 其他</div>
+</div>
+
+<div id="map"></div>
+
+<div id="sheet">
+  <div class="sheet-handle"></div>
+  <button id="sheet-close">×</button>
+  <div id="sheet-category"></div>
+  <div id="sheet-name"></div>
+  <div id="sheet-region"></div>
+  <div id="sheet-address"></div>
+  <div id="sheet-note"></div>
+  <a id="sheet-link" href="#" target="_blank">查看原始貼文</a>
+</div>
+
+<script>
+  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+  const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+  const LIFF_ID = 'YOUR_LIFF_ID';
+  const MAPS_KEY = 'YOUR_GOOGLE_MAPS_KEY';
+
+  const categoryLabel = {
+    food: '🍜 美食', cafe: '☕ 咖啡廳',
+    attraction: '🏛 景點', accommodation: '🏨 住宿', other: '📌 其他'
+  };
+  const regionLabel = {
+    north: '北部', central: '中部', south: '南部', east: '東部', unknown: '不明'
+  };
+
+  let map, allPlaces = [], markers = [];
+  let activeFilter = 'all';
+
+  // 初始化
+  async function init() {
+    await liff.init({ liffId: LIFF_ID });
+    const places = await fetchPlaces();
+    allPlaces = places;
+    loadGoogleMaps();
+  }
+
+  // 撈 Supabase 資料
+  async function fetchPlaces() {
+    const res = await fetch(
+      SUPABASE_URL + '/rest/v1/places?select=*&order=created_at.desc',
+      { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } }
+    );
+    return res.json();
+  }
+
+  // 載入 Google Maps
+  function loadGoogleMaps() {
+    const script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&callback=onMapReady';
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
+  // 地圖準備好
+  window.onMapReady = function () {
+    map = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: 23.97, lng: 120.97 }, // 台灣中心
+      zoom: 8,
+      disableDefaultUI: true,
+      zoomControl: true,
+    });
+    renderMarkers(allPlaces);
+    document.getElementById('loading').style.display = 'none';
+    setupFilters();
+  };
+
+  // 渲染地標
+  function renderMarkers(places) {
+    markers.forEach(m => m.setMap(null));
+    markers = [];
+
+    places.forEach(place => {
+      if (!place.lat || !place.lng) return;
+      const marker = new google.maps.Marker({
+        position: { lat: place.lat, lng: place.lng },
+        map,
+        title: place.name,
+      });
+      marker.addListener('click', () => openSheet(place));
+      markers.push(marker);
+    });
+  }
+
+  // 篩選
+  function setupFilters() {
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeFilter = chip.dataset.filter;
+        const filtered = activeFilter === 'all'
+          ? allPlaces
+          : allPlaces.filter(p => p.category === activeFilter);
+        renderMarkers(filtered);
+      });
+    });
+  }
+
+  // 開啟 Bottom Sheet
+  function openSheet(place) {
+    document.getElementById('sheet-category').textContent = categoryLabel[place.category] || place.category;
+    document.getElementById('sheet-name').textContent = place.name;
+    document.getElementById('sheet-region').textContent = '📍 ' + (regionLabel[place.region] || place.region);
+    document.getElementById('sheet-address').textContent = place.address || '';
+    document.getElementById('sheet-note').textContent = place.note || '';
+    const link = document.getElementById('sheet-link');
+    if (place.source_url) {
+      link.href = place.source_url;
+      link.style.display = 'block';
+    } else {
+      link.style.display = 'none';
+    }
+    document.getElementById('sheet').classList.add('open');
+  }
+
+  document.getElementById('sheet-close').addEventListener('click', () => {
+    document.getElementById('sheet').classList.remove('open');
+  });
+
+  init().catch(console.error);
+</script>
+
+<!-- Google Maps 由 loadGoogleMaps() 動態載入 -->
+</body>
+</html>
