@@ -215,10 +215,15 @@ try {
   debugMsg += '❌ exception: ' + e.message;
 }
 
+console.log(debugMsg);
 await client.pushMessage({
   to: userId,
-  messages: [{ type: 'text', text: debugMsg }],
+  messages: [{ type: 'text', text: lat !== null
+    ? '✅ 找到座標 (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')'
+    : '⚠️ 找不到座標，地圖上不會顯示'
+  }],
 });
+
 
 
 await client.pushMessage({
