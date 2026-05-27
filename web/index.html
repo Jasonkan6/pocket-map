@@ -173,11 +173,27 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     return res.json();
   }
 
+  function showDebug(msg) {
+    let el = document.getElementById('debug-overlay');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'debug-overlay';
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;font-size:12px;padding:8px;z-index:9999;word-break:break-all;white-space:pre-wrap;max-height:40vh;overflow-y:auto';
+      document.body.appendChild(el);
+    }
+    el.textContent += msg + '\n';
+  }
+
+  window.onerror = (msg, src, line) => showDebug('JS ERROR: ' + msg + ' @ ' + src + ':' + line);
+  window.gm_authFailure = () => showDebug('Maps auth failed — API key rejected for this domain: ' + location.hostname);
+
   // 載入 Google Maps
   function loadGoogleMaps() {
+    showDebug('Loading Maps from: ' + location.hostname);
     const script = document.createElement('script');
     script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&callback=onMapReady';
     script.async = true;
+    script.onerror = () => showDebug('Maps script failed to load');
     document.head.appendChild(script);
   }
 
