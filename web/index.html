@@ -130,9 +130,6 @@
 
     /* 載入中 */
     #loading {
-
-    /* 載入中 */
-    #loading {
       position: fixed; inset: 0; background: #fff;
       display: flex; align-items: center; justify-content: center;
       font-size: 16px; color: #555; z-index: 200;
@@ -214,27 +211,14 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     return res.json();
   }
 
-  function showDebug(msg) {
-    let el = document.getElementById('debug-overlay');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'debug-overlay';
-      el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;font-size:12px;padding:8px;z-index:9999;word-break:break-all;white-space:pre-wrap;max-height:40vh;overflow-y:auto';
-      document.body.appendChild(el);
-    }
-    el.textContent += msg + '\n';
-  }
-
-  window.onerror = (msg, src, line) => showDebug('JS ERROR: ' + msg + ' @ ' + src + ':' + line);
-  window.gm_authFailure = () => showDebug('Maps auth failed — API key rejected for this domain: ' + location.hostname);
+  window.gm_authFailure = () => alert('Google Maps 載入失敗：API key 不允許此網域。\nMaps failed to load — API key rejected for this domain: ' + location.hostname);
 
   // 載入 Google Maps
   function loadGoogleMaps() {
-    showDebug('Loading Maps from: ' + location.hostname);
     const script = document.createElement('script');
     script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&libraries=places&callback=onMapReady';
     script.async = true;
-    script.onerror = () => showDebug('Maps script failed to load');
+    script.onerror = () => alert('Google Maps 載入失敗，請稍後再試。');
     document.head.appendChild(script);
   }
 
