@@ -77,11 +77,12 @@
       text-decoration: none; font-size: 15px; font-weight: 600;
     }
     #sheet-maps-link {
-      display: none; text-align: center;
-      background: #34a853; color: #fff;
-      padding: 12px; border-radius: 12px;
-      text-decoration: none; font-size: 15px; font-weight: 600;
-      margin-top: 10px;
+      display: none;
+      position: absolute; top: 12px; right: 52px;
+      background: #1a9e8f; color: #fff;
+      width: 34px; height: 34px; border-radius: 8px;
+      text-decoration: none;
+      align-items: center; justify-content: center;
     }
     #sheet-close {
       position: absolute; top: 14px; right: 16px;
@@ -135,7 +136,9 @@
   <div id="sheet-note"></div>
   <img id="sheet-image" alt="" />
   <a id="sheet-link" href="#" target="_blank">查看原始貼文</a>
-  <a id="sheet-maps-link" href="#" target="_blank" rel="noopener noreferrer">在 Google Maps 開啟</a>
+  <a id="sheet-maps-link" href="#" target="_blank" rel="noopener noreferrer" title="在 Google Maps 開啟">
+    <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M12 2 3 21l.75-.34L12 17.5l8.25 3.16.75.34Z"/></svg>
+  </a>
 
 </div>
 
@@ -269,10 +272,10 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     const mapsLink = document.getElementById('sheet-maps-link');
     if (place.lat && place.lng) {
       mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
-      mapsLink.style.display = 'block';
+      mapsLink.style.display = 'flex';
     } else if (place.address) {
       mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`;
-      mapsLink.style.display = 'block';
+      mapsLink.style.display = 'flex';
     } else {
       mapsLink.style.display = 'none';
     }
