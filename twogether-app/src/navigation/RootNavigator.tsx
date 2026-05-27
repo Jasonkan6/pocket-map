@@ -16,7 +16,7 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { session, couple, isLoading, setSession, loadProfile } = useAuthStore();
+  const { session, couple, isLoading, skippedPairing, setSession, loadProfile } = useAuthStore();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -40,11 +40,14 @@ export default function RootNavigator() {
     );
   }
 
+  const showMain = !!session && (!!couple || skippedPairing);
+  const showPairing = !!session && !couple && !skippedPairing;
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!session ? (
         <Stack.Screen name="Login" component={LoginScreen} />
-      ) : !couple ? (
+      ) : showPairing ? (
         <Stack.Screen name="Pairing" component={PairingScreen} />
       ) : (
         <Stack.Screen name="Main" component={TabNavigator} />

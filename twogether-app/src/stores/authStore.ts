@@ -8,8 +8,10 @@ type AuthState = {
   profile: User | null;
   couple: Couple | null;
   isLoading: boolean;
+  skippedPairing: boolean;
   setSession: (session: Session | null) => void;
   loadProfile: (userId: string) => Promise<void>;
+  skipPairing: () => void;
   clear: () => void;
 };
 
@@ -18,6 +20,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   profile: null,
   couple: null,
   isLoading: true,
+  skippedPairing: false,
 
   setSession: (session) => set({ session, isLoading: false }),
 
@@ -41,5 +44,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  clear: () => set({ session: null, profile: null, couple: null }),
+  skipPairing: () => set({ skippedPairing: true }),
+  clear: () => set({ session: null, profile: null, couple: null, skippedPairing: false }),
 }));

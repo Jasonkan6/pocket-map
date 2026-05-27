@@ -13,7 +13,7 @@ import { createCouple, joinCouple } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function PairingScreen() {
-  const { profile, loadProfile } = useAuthStore();
+  const { profile, loadProfile, skipPairing } = useAuthStore();
   const [inviteCode, setInviteCode] = useState('');
   const [myCode, setMyCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -99,6 +99,9 @@ export default function PairingScreen() {
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>配對</Text>}
         </TouchableOpacity>
       </View>
+      <TouchableOpacity onPress={skipPairing} style={styles.skipButton}>
+        <Text style={styles.skipText}>暫時跳過，先自己用</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -138,4 +141,6 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 24 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E0D9CE' },
   dividerText: { color: '#8A8070', fontSize: 14 },
+  skipButton: { alignItems: 'center', paddingVertical: 20, marginTop: 8 },
+  skipText: { color: '#8A8070', fontSize: 14, textDecorationLine: 'underline' },
 });
