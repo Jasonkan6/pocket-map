@@ -76,6 +76,13 @@
       padding: 12px; border-radius: 12px;
       text-decoration: none; font-size: 15px; font-weight: 600;
     }
+    #sheet-maps-link {
+      display: none; text-align: center;
+      background: #34a853; color: #fff;
+      padding: 12px; border-radius: 12px;
+      text-decoration: none; font-size: 15px; font-weight: 600;
+      margin-top: 10px;
+    }
     #sheet-close {
       position: absolute; top: 14px; right: 16px;
       font-size: 22px; color: #aaa; cursor: pointer;
@@ -128,6 +135,7 @@
   <div id="sheet-note"></div>
   <img id="sheet-image" alt="" />
   <a id="sheet-link" href="#" target="_blank">查看原始貼文</a>
+  <a id="sheet-maps-link" href="#" target="_blank" rel="noopener noreferrer">在 Google Maps 開啟</a>
 
 </div>
 
@@ -241,6 +249,16 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
       link.style.display = 'block';
     } else {
       link.style.display = 'none';
+    }
+    const mapsLink = document.getElementById('sheet-maps-link');
+    if (place.lat && place.lng) {
+      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+      mapsLink.style.display = 'block';
+    } else if (place.address) {
+      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`;
+      mapsLink.style.display = 'block';
+    } else {
+      mapsLink.style.display = 'none';
     }
     document.getElementById('sheet').classList.add('open');
   }
