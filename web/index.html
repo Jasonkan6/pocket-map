@@ -89,6 +89,36 @@
       font-size: 22px; color: #aaa; cursor: pointer;
       background: none; border: none;
     }
+    #parking-btn {
+      display: none; width: 100%; margin-bottom: 12px;
+      padding: 12px; background: #f5f5f5; border: 1.5px solid #ddd;
+      border-radius: 12px; font-size: 15px; font-weight: 600;
+      cursor: pointer; color: #333;
+    }
+    #parking-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    #parking-view { display: none; }
+    #parking-back {
+      background: none; border: none; font-size: 14px;
+      color: #1a73e8; cursor: pointer; padding: 0 0 12px 0; font-weight: 600;
+    }
+    #parking-title { font-size: 13px; color: #888; margin-bottom: 12px; }
+    #parking-list { display: flex; flex-direction: column; gap: 8px; }
+    .parking-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; background: #f9f9f9; border-radius: 12px;
+      text-decoration: none; color: inherit; border: 1.5px solid #eee;
+    }
+    .parking-item:active { background: #eee; }
+    .parking-item-info { flex: 1; }
+    .parking-item-name { font-size: 14px; font-weight: 600; color: #222; }
+    .parking-item-meta { font-size: 12px; color: #888; margin-top: 3px; }
+    .parking-item-arrow { font-size: 18px; color: #ccc; margin-left: 8px; }
+    .parking-status-open { color: #2e7d32; font-weight: 600; }
+    .parking-status-closed { color: #c62828; font-weight: 600; }
+    #parking-empty {
+      display: none; font-size: 14px; color: #999;
+      text-align: center; padding: 20px 0;
+    }
         /* 定位按鈕 */
     #locate-btn {
       position: fixed; bottom: 32px; right: 16px;
@@ -134,12 +164,19 @@
   <div id="sheet-region"></div>
   <div id="sheet-address"></div>
   <div id="sheet-note"></div>
+  <button id="parking-btn">🅿️ 找附近停車場</button>
   <img id="sheet-image" alt="" />
   <a id="sheet-link" href="#" target="_blank">查看原始貼文</a>
   <a id="sheet-maps-link" href="#" target="_blank" rel="noopener noreferrer" title="在 Google Maps 開啟">
     <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M12 2 3 21l.75-.34L12 17.5l8.25 3.16.75.34Z"/></svg>
   </a>
 
+  <div id="parking-view">
+    <button id="parking-back">← 返回地點資訊</button>
+    <div id="parking-title"></div>
+    <div id="parking-empty">附近沒有找到停車場</div>
+    <div id="parking-list"></div>
+  </div>
 </div>
 
 <script>
@@ -158,6 +195,7 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
 
   let map, allPlaces = [], markers = [];
   let activeFilter = 'all';
+  let currentPlace = null;
 
   // 初始化
   async function init() {
@@ -194,7 +232,7 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
   function loadGoogleMaps() {
     showDebug('Loading Maps from: ' + location.hostname);
     const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&callback=onMapReady';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&libraries=places&callback=onMapReady';
     script.async = true;
     script.onerror = () => showDebug('Maps script failed to load');
     document.head.appendChild(script);
@@ -211,7 +249,11 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     renderMarkers(allPlaces);
     document.getElementById('loading').style.display = 'none';
     setupFilters();
-    setupLocate();   // ← 加這行
+    setupLocate();
+    document.getElementById('parking-btn').addEventListener('click', findParking);
+    document.getElementById('parking-back').addEventListener('click', () => {
+      if (currentPlace) openSheet(currentPlace);
+    });
 
 
   };
@@ -248,8 +290,102 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     });
   }
 
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function hideParkingView() {
+    document.getElementById('parking-view').style.display = 'none';
+    document.getElementById('parking-list').innerHTML = '';
+    document.getElementById('parking-empty').style.display = 'none';
+  }
+
+  function showParkingView(results, placeName) {
+    // Hide default sheet content
+    ['sheet-category','sheet-name','sheet-region','sheet-address','sheet-note',
+     'sheet-image','sheet-link','parking-btn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    document.getElementById('sheet-maps-link').style.display = 'none';
+
+    const view = document.getElementById('parking-view');
+    view.style.display = 'block';
+
+    document.getElementById('parking-title').textContent = '🅿️ 「' + placeName + '」附近停車場';
+    document.getElementById('parking-empty').style.display = results.length === 0 ? 'block' : 'none';
+
+    const list = document.getElementById('parking-list');
+    list.innerHTML = results.map(p => {
+      const dist = p.distance >= 1000
+        ? (p.distance / 1000).toFixed(1) + 'km'
+        : p.distance + 'm';
+      const statusHtml = p.open_now === true
+        ? '<span class="parking-status-open">● 營業中</span>'
+        : p.open_now === false
+          ? '<span class="parking-status-closed">● 已打烊</span>'
+          : '';
+      const href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name) + '&query_place_id=' + encodeURIComponent(p.place_id);
+      return '<a class="parking-item" href="' + href + '" target="_blank" rel="noopener noreferrer">'
+        + '<div class="parking-item-info">'
+        + '<div class="parking-item-name">' + escapeHtml(p.name) + '</div>'
+        + '<div class="parking-item-meta">' + dist + (statusHtml ? ' · ' + statusHtml : '') + '</div>'
+        + '</div>'
+        + '<div class="parking-item-arrow">›</div>'
+        + '</a>';
+    }).join('');
+  }
+
+  function findParking() {
+    if (!currentPlace?.lat || !currentPlace?.lng) return;
+    const btn = document.getElementById('parking-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 搜尋中...';
+
+    const destLat = Number(currentPlace.lat), destLng = Number(currentPlace.lng);
+    const service = new google.maps.places.PlacesService(map);
+    service.nearbySearch(
+      { location: { lat: destLat, lng: destLng }, radius: 600, type: 'parking' },
+      (places, status) => {
+        btn.disabled = false;
+        btn.textContent = '🅿️ 找附近停車場';
+        const S = google.maps.places.PlacesServiceStatus;
+        if (status !== S.OK && status !== S.ZERO_RESULTS) {
+          console.error('nearbySearch failed:', status);
+          alert('搜尋停車場失敗，請稍後再試。');
+          return;
+        }
+        const results = (places || [])
+          .filter(p => {
+            const name = p.name || '';
+            return !(name.includes('機車') && !name.includes('汽車'));
+          })
+          .map(p => {
+            const pLat = p.geometry.location.lat();
+            const pLng = p.geometry.location.lng();
+            const R = 6371000;
+            const dLat = (pLat - destLat) * Math.PI / 180;
+            const dLng = (pLng - destLng) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2
+              + Math.cos(destLat * Math.PI / 180) * Math.cos(pLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+            const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+            return {
+              place_id: p.place_id,
+              name: p.name,
+              open_now: p.opening_hours?.open_now ?? null,
+              distance,
+            };
+          })
+          .sort((a, b) => a.distance - b.distance);
+        showParkingView(results, currentPlace.name);
+      }
+    );
+  }
+
   // 開啟 Bottom Sheet
   function openSheet(place) {
+    hideParkingView();
+    currentPlace = place;
     document.getElementById('sheet-category').textContent = categoryLabel[place.category] || place.category;
     document.getElementById('sheet-name').textContent = place.name;
     document.getElementById('sheet-region').textContent = '📍 ' + (regionLabel[place.region] || place.region);
@@ -280,11 +416,18 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     } else {
       mapsLink.style.display = 'none';
     }
+    const parkingBtn = document.getElementById('parking-btn');
+    parkingBtn.style.display = (place.lat && place.lng) ? 'block' : 'none';
+    parkingBtn.disabled = false;
+    parkingBtn.textContent = '🅿️ 找附近停車場';
+
     document.getElementById('sheet').classList.add('open');
   }
 
   document.getElementById('sheet-close').addEventListener('click', () => {
     document.getElementById('sheet').classList.remove('open');
+    hideParkingView();
+    currentPlace = null;
   });
     // 定位功能
   function setupLocate() {
@@ -319,9 +462,6 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
       }
     );
   }
-
-  init().catch(console.error);
-
 
   init().catch(console.error);
 </script>
