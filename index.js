@@ -22,8 +22,6 @@ const blobClient = new line.messagingApi.MessagingApiBlobClient({
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-const pendingPlaces = {};
-
 // Batch upload 狀態管理
 const batchState = {};
 // 結構: { [userId]: { total, processed, success, failed, timer, batchEnded } }
@@ -110,28 +108,6 @@ async function handleEvent(event) {
   if (event.message.type !== 'text') return;
 
   const text = event.message.text.trim();
-
-  // 確認儲存
-  if (text === 'OK') {
-    const place = pendingPlaces[userId];
-    if (!place) return;
-
-    const { error } = await supabase.from('places').insert([place]);
-    if (error) {
-      await client.replyMessage({
-        replyToken: event.replyToken,
-        messages: [{ type: 'text', text: '❌ Save failed: ' + error.message }],
-      });
-      return;
-    }
-
-    delete pendingPlaces[userId];
-    await client.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{ type: 'text', text: '✅ Saved: ' + place.name + ' (' + place.category + ' / ' + place.region + ')' }],
-    });
-    return;
-  }
 
   // 其他文字
   await client.replyMessage({
