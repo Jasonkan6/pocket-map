@@ -232,7 +232,7 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
   function loadGoogleMaps() {
     showDebug('Loading Maps from: ' + location.hostname);
     const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&callback=onMapReady';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&libraries=places&callback=onMapReady';
     script.async = true;
     script.onerror = () => showDebug('Maps script failed to load');
     document.head.appendChild(script);
@@ -336,22 +336,50 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
     }).join('');
   }
 
-  async function findParking() {
+  function findParking() {
     if (!currentPlace?.lat || !currentPlace?.lng) return;
     const btn = document.getElementById('parking-btn');
     btn.disabled = true;
     btn.textContent = '⏳ 搜尋中...';
-    try {
-      const res = await fetch('/api/parking?lat=' + currentPlace.lat + '&lng=' + currentPlace.lng + '&radius=600');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'API error');
-      showParkingView(data.results, currentPlace.name);
-    } catch (err) {
-      console.error('findParking error:', err);
-      btn.disabled = false;
-      btn.textContent = '🅿️ 找附近停車場';
-      alert('搜尋停車場失敗，請稍後再試。');
-    }
+
+    const destLat = Number(currentPlace.lat), destLng = Number(currentPlace.lng);
+    const service = new google.maps.places.PlacesService(map);
+    service.nearbySearch(
+      { location: { lat: destLat, lng: destLng }, radius: 600, type: 'parking' },
+      (places, status) => {
+        btn.disabled = false;
+        btn.textContent = '🅿️ 找附近停車場';
+        const S = google.maps.places.PlacesServiceStatus;
+        if (status !== S.OK && status !== S.ZERO_RESULTS) {
+          console.error('nearbySearch failed:', status);
+          alert('搜尋停車場失敗，請稍後再試。');
+          return;
+        }
+        const results = (places || [])
+          .filter(p => {
+            const name = p.name || '';
+            return !(name.includes('機車') && !name.includes('汽車'));
+          })
+          .map(p => {
+            const pLat = p.geometry.location.lat();
+            const pLng = p.geometry.location.lng();
+            const R = 6371000;
+            const dLat = (pLat - destLat) * Math.PI / 180;
+            const dLng = (pLng - destLng) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2
+              + Math.cos(destLat * Math.PI / 180) * Math.cos(pLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+            const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+            return {
+              place_id: p.place_id,
+              name: p.name,
+              open_now: p.opening_hours?.open_now ?? null,
+              distance,
+            };
+          })
+          .sort((a, b) => a.distance - b.distance);
+        showParkingView(results, currentPlace.name);
+      }
+    );
   }
 
   // 開啟 Bottom Sheet

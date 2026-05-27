@@ -76,61 +76,6 @@ async function maybeSendSummary(userId) {
 
 
 
-app.use(express.static('web'));
-
-app.get('/api/parking', async (req, res) => {
-  const { lat, lng, radius = 600 } = req.query;
-  if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
-
-  try {
-    const url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-      + '?location=' + encodeURIComponent(lat + ',' + lng)
-      + '&radius=' + encodeURIComponent(radius)
-      + '&type=parking'
-      + '&key=' + process.env.GOOGLE_MAPS_KEY;
-
-    const apiRes = await fetch(url);
-    const data = await apiRes.json();
-
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      return res.status(502).json({ error: data.status });
-    }
-
-    const destLat = parseFloat(lat), destLng = parseFloat(lng);
-
-    const results = (data.results || [])
-      .filter(p => {
-        const name = p.name || '';
-        return !(name.includes('機車') && !name.includes('汽車'));
-      })
-      .map(p => {
-        const pLat = p.geometry.location.lat;
-        const pLng = p.geometry.location.lng;
-        const R = 6371000;
-        const dLat = (pLat - destLat) * Math.PI / 180;
-        const dLng = (pLng - destLng) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) ** 2
-          + Math.cos(destLat * Math.PI / 180) * Math.cos(pLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-        const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-        return {
-          place_id: p.place_id,
-          name: p.name,
-          address: p.vicinity,
-          lat: pLat,
-          lng: pLng,
-          open_now: p.opening_hours?.open_now ?? null,
-          distance,
-        };
-      })
-      .sort((a, b) => a.distance - b.distance);
-
-    res.json({ results });
-  } catch (err) {
-    console.error('parking endpoint error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
   res.sendStatus(200);
   const events = req.body.events;
@@ -329,6 +274,7 @@ async function downloadLineImage(messageId) {
 
 
 
+app.get('/', (req, res) => res.send('Pocket Map Bot is running!'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server running on port ' + PORT));
