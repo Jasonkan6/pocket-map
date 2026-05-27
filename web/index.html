@@ -270,11 +270,12 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
       link.style.display = 'none';
     }
     const mapsLink = document.getElementById('sheet-maps-link');
-    if (place.lat && place.lng) {
-      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+    const mapsQuery = [place.name, place.address].filter(Boolean).join(' ');
+    if (mapsQuery) {
+      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
       mapsLink.style.display = 'flex';
-    } else if (place.address) {
-      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`;
+    } else if (place.lat && place.lng) {
+      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
       mapsLink.style.display = 'flex';
     } else {
       mapsLink.style.display = 'none';
