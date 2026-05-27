@@ -325,7 +325,7 @@ const MAPS_KEY ="AIzaSyDoDHi2r7dEmA-RwENOAe2otYhHp4uPVD4";
         : p.open_now === false
           ? '<span class="parking-status-closed">● 已打烊</span>'
           : '';
-      const href = 'https://www.google.com/maps/place/?q=place_id:' + encodeURIComponent(p.place_id);
+      const href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name) + '&query_place_id=' + encodeURIComponent(p.place_id);
       return '<a class="parking-item" href="' + href + '" target="_blank" rel="noopener noreferrer">'
         + '<div class="parking-item-info">'
         + '<div class="parking-item-name">' + escapeHtml(p.name) + '</div>'
