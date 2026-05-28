@@ -65,11 +65,17 @@ function PlaceCard({ place }: { place: Place }) {
           <View style={[styles.badge, place.visited ? styles.visitedBadge : styles.wishlistBadge]}>
             <Text style={styles.badgeText}>{place.visited ? '去過' : '想去'}</Text>
           </View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              {BLOOM_EMOJIS[bloomIdx]} {BLOOM_LABELS[bloomIdx]}
-            </Text>
-          </View>
+          {place.visited ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {BLOOM_EMOJIS[bloomIdx]} {BLOOM_LABELS[bloomIdx]}
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.badge, styles.starBadge]}>
+              <Text style={styles.badgeText}>⭐ 收藏中</Text>
+            </View>
+          )}
           {(place.visit_count ?? 0) > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>造訪 {place.visit_count} 次</Text>
@@ -191,6 +197,7 @@ const styles = StyleSheet.create({
   },
   visitedBadge: { backgroundColor: '#EEF3EF' },
   wishlistBadge: { backgroundColor: '#F3F0E8' },
+  starBadge: { backgroundColor: '#FFF8E1' },
   badgeText: { fontSize: 12, color: '#5C7A5F', fontWeight: '500' },
   note: { fontSize: 14, color: '#2D2A26', lineHeight: 20, marginTop: 4 },
   mapsBtn: {

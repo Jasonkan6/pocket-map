@@ -26,6 +26,15 @@ function buildHtml(places: Place[]): string {
       font-size:20px;
       cursor:pointer;
     }
+    .wp{
+      width:38px;height:38px;
+      background:rgba(255,193,7,0.2);
+      border:2px solid #FFC107;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;
+      cursor:pointer;
+    }
   </style>
 </head>
 <body>
@@ -53,9 +62,12 @@ if(valid.length===0){
 
 valid.forEach(function(place){
   var level=Math.min(place.bloom_level||0,5);
+  var isWishlist=!place.visited;
   var icon=L.divIcon({
     className:'',
-    html:'<div class="bp">'+BLOOM[level]+'</div>',
+    html: isWishlist
+      ? '<div class="wp">⭐</div>'
+      : '<div class="bp">'+BLOOM[level]+'</div>',
     iconSize:[38,38],
     iconAnchor:[19,19]
   });
