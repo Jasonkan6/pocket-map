@@ -7,12 +7,15 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import PairingScreen from '../screens/auth/PairingScreen';
 import TabNavigator from './TabNavigator';
 import WishlistAddScreen from '../screens/wishlist/WishlistAddScreen';
+import PlaceEditScreen from '../screens/wishlist/PlaceEditScreen';
+import type { Place } from '../types';
 
 export type RootStackParamList = {
   Login: undefined;
   Pairing: undefined;
   Main: undefined;
   WishlistAdd: undefined;
+  PlaceEdit: { place: Place };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -57,6 +60,11 @@ export default function RootNavigator() {
           <Stack.Screen
             name="WishlistAdd"
             component={WishlistAddScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="PlaceEdit"
+            component={PlaceEditScreen}
             options={{ presentation: 'modal' }}
           />
         </>

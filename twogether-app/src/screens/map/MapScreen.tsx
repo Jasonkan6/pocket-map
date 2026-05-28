@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity,
+  View, Text, TouchableOpacity, Alert,
   StyleSheet, ActivityIndicator, SafeAreaView,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { getPlaces } from '../../lib/supabase';
+import { getPlaces, deletePlace } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import type { Place } from '../../types';
 import RegionGallerySheet from '../../components/RegionGallerySheet';
@@ -41,6 +41,30 @@ export default function MapScreen() {
   }, [couple, profile, session]);
 
   useFocusEffect(useCallback(() => { loadPlaces(); }, [loadPlaces]));
+
+  function handleEdit(place: Place) {
+    setRegionPlaces(null);
+    navigation.navigate('PlaceEdit', { place });
+  }
+
+  function handleDelete(place: Place) {
+    Alert.alert('刪除地點', `確定要刪除「${place.name}」嗎？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '刪除',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await deletePlace(place.id);
+          if (error) { Alert.alert('刪除失敗', String(error)); return; }
+          setRegionPlaces(prev => {
+            const next = (prev ?? []).filter(p => p.id !== place.id);
+            return next.length ? next : null;
+          });
+          loadPlaces();
+        },
+      },
+    ]);
+  }
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#5C7A5F" /></View>;
@@ -98,7 +122,12 @@ export default function MapScreen() {
       </TouchableOpacity>
 
       {regionPlaces && (
-        <RegionGallerySheet places={regionPlaces} onClose={() => setRegionPlaces(null)} />
+        <RegionGallerySheet
+          places={regionPlaces}
+          onClose={() => setRegionPlaces(null)}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       )}
     </SafeAreaView>
   );

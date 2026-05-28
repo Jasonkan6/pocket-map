@@ -123,6 +123,19 @@ export async function savePlace(
   return { place: data as Place | null, error };
 }
 
+export async function updatePlace(
+  placeId: string,
+  fields: Partial<Pick<Place, 'name' | 'category' | 'lat' | 'lng' | 'region' | 'note' | 'address' | 'visited' | 'status'>>,
+): Promise<{ error: unknown }> {
+  const { error } = await supabase.from('places').update(fields).eq('id', placeId);
+  return { error };
+}
+
+export async function deletePlace(placeId: string): Promise<{ error: unknown }> {
+  const { error } = await supabase.from('places').delete().eq('id', placeId);
+  return { error };
+}
+
 // Decode base64 to bytes. On React Native, uploading a Blob/fetch result to
 // Supabase Storage yields a 0-byte file, so we upload a Uint8Array instead.
 function base64ToBytes(base64: string): Uint8Array {

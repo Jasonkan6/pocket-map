@@ -32,9 +32,18 @@ const CATEGORY_EMOJI: Record<Place['category'], string> = {
   other: '📍',
 };
 
-type Props = { places: Place[]; onClose: () => void };
+type Props = {
+  places: Place[];
+  onClose: () => void;
+  onEdit: (place: Place) => void;
+  onDelete: (place: Place) => void;
+};
 
-function PlaceCard({ place }: { place: Place }) {
+function PlaceCard({ place, onEdit, onDelete }: {
+  place: Place;
+  onEdit: (place: Place) => void;
+  onDelete: (place: Place) => void;
+}) {
   const date = new Date(place.created_at).toLocaleDateString('zh-TW');
   const bloomIdx = Math.min(place.bloom_level ?? 0, 5);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -96,18 +105,27 @@ function PlaceCard({ place }: { place: Place }) {
             <Text style={styles.mapsBtnText}>在 Google Maps 開啟</Text>
           </TouchableOpacity>
         )}
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(place)}>
+            <Text style={styles.actionText}>✏️ 編輯</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.actionBtn, styles.deleteBtn]} onPress={() => onDelete(place)}>
+            <Text style={[styles.actionText, styles.deleteText]}>🗑️ 刪除</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 function getSheetTitle(places: Place[]): string {
-  const regions = [...new Set(places.map(p => p.region).filter(Boolean))];
-  if (regions.length === 1) return `📍 ${regions[0]}`;
+  const regions = [...new Set(places.map(p => p.region).filter(Boolean))] as string[];
+  if (regions.length === 1) return `📍 ${REGION_LABELS[regions[0]] || regions[0]}`;
   return `📍 附近 ${places.length} 個地點`;
 }
 
-export default function RegionGallerySheet({ places, onClose }: Props) {
+export default function RegionGallerySheet({ places, onClose, onEdit, onDelete }: Props) {
   return (
     <View style={styles.sheet}>
       <View style={styles.handle} />
@@ -122,7 +140,9 @@ export default function RegionGallerySheet({ places, onClose }: Props) {
       <FlatList
         data={places}
         keyExtractor={item => item.id}
-        renderItem={({ item }: ListRenderItemInfo<Place>) => <PlaceCard place={item} />}
+        renderItem={({ item }: ListRenderItemInfo<Place>) => (
+          <PlaceCard place={item} onEdit={onEdit} onDelete={onDelete} />
+        )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
@@ -211,4 +231,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mapsBtnText: { fontSize: 14, color: '#5C7A5F', fontWeight: '600' },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  actionBtn: {
+    flex: 1,
+    backgroundColor: '#F0EBE3',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  actionText: { fontSize: 14, color: '#5C7A5F', fontWeight: '600' },
+  deleteBtn: { backgroundColor: '#FBEDEC' },
+  deleteText: { color: '#C0392B' },
 });
