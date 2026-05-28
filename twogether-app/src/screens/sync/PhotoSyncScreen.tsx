@@ -11,6 +11,7 @@ type GeoPhoto = {
   asset: MediaLibrary.Asset;
   latitude: number;
   longitude: number;
+  localUri: string;  // file:// URI — ph:// URIs cannot be displayed by Image
 };
 
 export default function PhotoSyncScreen() {
@@ -47,8 +48,13 @@ export default function PhotoSyncScreen() {
           const infos = await Promise.all(batch.map(a => MediaLibrary.getAssetInfoAsync(a.id)));
           for (let j = 0; j < batch.length; j++) {
             const info = infos[j];
-            if (info.location?.latitude && info.location?.longitude) {
-              results.push({ asset: batch[j], latitude: info.location.latitude, longitude: info.location.longitude });
+            if (info.location?.latitude && info.location?.longitude && info.localUri) {
+              results.push({
+                asset: batch[j],
+                latitude: info.location.latitude,
+                longitude: info.location.longitude,
+                localUri: info.localUri,  // file:// path, safe for Image component
+              });
             }
           }
         }
@@ -82,7 +88,7 @@ export default function PhotoSyncScreen() {
           category: 'other',
           lat: photo.latitude,
           lng: photo.longitude,
-          image_url: photo.asset.uri,
+          image_url: photo.localUri,
         });
         if (!error) count++;
       }
@@ -160,7 +166,7 @@ export default function PhotoSyncScreen() {
                   onPress={() => toggleSelect(item.asset.id)}
                   activeOpacity={0.7}
                 >
-                  <Image source={{ uri: item.asset.uri }} style={styles.thumbImg} />
+                  <Image source={{ uri: item.localUri }} style={styles.thumbImg} />
                   {isSelected && (
                     <View style={styles.checkmark}>
                       <Text style={styles.checkmarkText}>✓</Text>
