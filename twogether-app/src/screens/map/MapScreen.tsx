@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Alert,
-  StyleSheet, ActivityIndicator, SafeAreaView, ActionSheetIOS,
+  StyleSheet, ActivityIndicator, SafeAreaView,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -43,19 +43,6 @@ export default function MapScreen() {
   }, [couple, profile, session]);
 
   useFocusEffect(useCallback(() => { loadPlaces(); }, [loadPlaces]));
-
-  function handleFabPress() {
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options: ['取消', '📷 截圖新增 想去地點', '📍 定位新增 到訪地點'],
-        cancelButtonIndex: 0,
-      },
-      (idx) => {
-        if (idx === 1) navigation.navigate('WishlistAdd');
-        if (idx === 2) handleAddPlace();
-      },
-    );
-  }
 
   async function handleAddPlace() {
     const userId = profile?.id ?? session?.user?.id;
@@ -141,7 +128,7 @@ export default function MapScreen() {
       </View>
 
       {/* FAB — drop a pin at current GPS location */}
-      <TouchableOpacity style={styles.fab} onPress={handleFabPress} disabled={adding}>
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('WishlistAdd')} disabled={adding}>
         {adding
           ? <ActivityIndicator color="#fff" />
           : <Text style={styles.fabText}>＋</Text>
