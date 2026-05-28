@@ -15,7 +15,7 @@ type GeoPhoto = {
 };
 
 export default function PhotoSyncScreen() {
-  const { profile, couple } = useAuthStore();
+  const { profile, couple, session } = useAuthStore();
   const [permission, requestPermission] = MediaLibrary.usePermissions();
   const [photos, setPhotos] = useState<GeoPhoto[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -75,26 +75,39 @@ export default function PhotoSyncScreen() {
   }, []);
 
   async function handleImport() {
-    if (!profile || selected.size === 0) return;
+    const userId = profile?.id ?? session?.user?.id;
+    if (!userId || selected.size === 0) {
+      Alert.alert('無法匯入', '請先登入後再試');
+      return;
+    }
     setImporting(true);
     let count = 0;
+    let lastError: unknown = null;
     try {
       for (const id of selected) {
         const photo = photos.find(p => p.asset.id === id);
         if (!photo) continue;
         const date = new Date(photo.asset.creationTime).toLocaleDateString('zh-TW');
-        const { error } = await savePlace(profile.id, couple?.id ?? null, {
+        const { error } = await savePlace(userId, couple?.id ?? null, {
           name: `📸 ${date}`,
           category: 'other',
           lat: photo.latitude,
           lng: photo.longitude,
           image_url: photo.localUri,
         });
-        if (!error) count++;
+        if (!error) {
+          count++;
+        } else {
+          lastError = error;
+        }
       }
-      Alert.alert('匯入完成', `成功匯入 ${count} 個地點`, [
-        { text: '好', onPress: () => { setSelected(new Set()); setPhotos([]); } },
-      ]);
+      if (count > 0) {
+        Alert.alert('匯入完成', `成功匯入 ${count} 個地點，請切換到地圖查看`, [
+          { text: '好', onPress: () => { setSelected(new Set()); setPhotos([]); } },
+        ]);
+      } else {
+        Alert.alert('匯入失敗', `錯誤：${JSON.stringify(lastError)}`);
+      }
     } finally {
       setImporting(false);
     }

@@ -12,7 +12,7 @@ import PlaceDetailSheet from '../../components/PlaceDetailSheet';
 import LeafletMap from '../../components/LeafletMap';
 
 export default function MapScreen() {
-  const { couple, profile } = useAuthStore();
+  const { couple, profile, session } = useAuthStore();
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -20,22 +20,24 @@ export default function MapScreen() {
   const [filter, setFilter] = useState<'all' | 'visited' | 'wishlist'>('all');
 
   const loadPlaces = useCallback(async () => {
-    if (!profile) { setLoading(false); return; }
+    const userId = profile?.id ?? session?.user?.id;
+    if (!userId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const data = await getPlaces(couple?.id ?? null, profile.id);
+      const data = await getPlaces(couple?.id ?? null, userId);
       setPlaces(data);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [couple, profile]);
+  }, [couple, profile, session]);
 
   useFocusEffect(useCallback(() => { loadPlaces(); }, [loadPlaces]));
 
   async function handleAddPlace() {
-    if (!profile || adding) return;
+    const userId = profile?.id ?? session?.user?.id;
+    if (!userId || adding) return;
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('需要定位權限', '請在設定中允許 Twogether 存取位置');
@@ -49,7 +51,7 @@ export default function MapScreen() {
         '輸入這個地方的名稱',
         async (name) => {
           if (!name?.trim()) return;
-          await savePlace(profile.id, couple?.id ?? null, {
+          await savePlace(userId, couple?.id ?? null, {
             name: name.trim(),
             category: 'other',
             lat: pos.coords.latitude,

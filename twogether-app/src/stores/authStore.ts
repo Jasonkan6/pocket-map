@@ -31,23 +31,46 @@ export const useAuthStore = create<AuthState>((set) => ({
       .eq('id', userId)
       .single();
 
-    // Auto-create profile row for users who signed up before migration
+    // Auto-create profile row for users who signed up before migration ran
     if (!profile) {
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('users').upsert({
+      const { data: authData } = await supabase.auth.getUser();
+      const { error: upsertError } = await supabase.from('users').upsert({
         id: userId,
-        email: user?.email ?? null,
-        display_name: user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? null,
+        email: authData.user?.email ?? null,
+        display_name:
+          authData.user?.user_metadata?.display_name ??
+          authData.user?.email?.split('@')[0] ??
+          null,
       });
-      const { data: created } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      profile = created;
+      if (!upsertError) {
+        const { data: created } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        profile = created;
+      }
     }
 
-    if (!profile) return;
+    // Even if the users table fails (RLS or missing table), synthesise a
+    // minimal profile from the auth session so the app stays functional.
+    if (!profile) {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData.user) {
+        const synthetic: User = {
+          id: authData.user.id,
+          email: authData.user.email ?? null,
+          display_name: authData.user.user_metadata?.display_name ?? null,
+          avatar_url: null,
+          couple_id: null,
+          created_at: authData.user.created_at,
+        };
+        set({ profile: synthetic });
+        return;
+      }
+      return;
+    }
+
     set({ profile: profile as User });
 
     if (profile.couple_id) {
