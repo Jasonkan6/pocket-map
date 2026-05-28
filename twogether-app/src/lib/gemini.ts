@@ -4,13 +4,14 @@ const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini
 const PROMPT =
   'This is a screenshot from Instagram or Threads showing a place (restaurant, cafe, attraction, etc.).\n' +
   'Extract the place information from the image. Keep the place name and address in their original language (Traditional Chinese if applicable).\n' +
+  'Write the "note" field in Traditional Chinese (繁體中文).\n' +
   'Reply ONLY with this JSON format, no extra text or markdown:\n\n' +
   '{\n' +
   '  "name": "place name in original language",\n' +
   '  "category": "food|cafe|attraction|accommodation|other",\n' +
   '  "region": "north|central|south|east|unknown",\n' +
   '  "address": "full address if visible in the image, or empty string",\n' +
-  '  "note": "brief description of the place"\n' +
+  '  "note": "brief description of the place in Traditional Chinese"\n' +
   '}';
 
 export type ExtractedPlace = {

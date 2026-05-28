@@ -13,6 +13,14 @@ const CATEGORY_LABELS: Record<Place['category'], string> = {
   other: '其他',
 };
 
+const REGION_LABELS: Record<string, string> = {
+  north: '北部',
+  central: '中部',
+  south: '南部',
+  east: '東部',
+  unknown: '',
+};
+
 const BLOOM_EMOJIS = ['🌱', '🌿', '🌳', '🌲', '🌸', '🌴'];
 const BLOOM_LABELS = ['種子', '幼苗', '小樹', '中樹', '大樹', '茂盛'];
 
@@ -51,7 +59,7 @@ function PlaceCard({ place }: { place: Place }) {
 
       <View style={styles.cardBody}>
         <Text style={styles.placeName} numberOfLines={2}>{place.name}</Text>
-        <Text style={styles.placeMeta}>{date} · {place.region ?? CATEGORY_LABELS[place.category]}</Text>
+        <Text style={styles.placeMeta}>{date} · {(place.region ? (REGION_LABELS[place.region] ?? place.region) : null) ?? CATEGORY_LABELS[place.category]}</Text>
 
         <View style={styles.badges}>
           <View style={[styles.badge, place.visited ? styles.visitedBadge : styles.wishlistBadge]}>
