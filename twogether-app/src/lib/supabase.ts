@@ -91,15 +91,34 @@ export async function joinCouple(userId: string, inviteCode: string): Promise<{ 
 
 // --- Places helpers ---
 
-export async function getPlaces(coupleId: string): Promise<Place[]> {
-  const { data, error } = await supabase
-    .from('places')
-    .select('*')
-    .eq('couple_id', coupleId)
-    .order('created_at', { ascending: false });
-
+export async function getPlaces(coupleId: string | null, userId: string): Promise<Place[]> {
+  const query = supabase.from('places').select('*').order('created_at', { ascending: false });
+  const { data, error } = coupleId
+    ? await query.eq('couple_id', coupleId)
+    : await query.eq('saved_by', userId);
   if (error) throw error;
   return (data ?? []) as Place[];
+}
+
+export async function savePlace(
+  userId: string,
+  coupleId: string | null,
+  fields: Pick<Place, 'name' | 'category' | 'lat' | 'lng'> & Partial<Pick<Place, 'image_url' | 'region' | 'note'>>,
+): Promise<{ place: Place | null; error: unknown }> {
+  const { data, error } = await supabase
+    .from('places')
+    .insert({
+      saved_by: userId,
+      couple_id: coupleId,
+      bloom_level: 0,
+      visited: true,
+      visit_count: 0,
+      source_type: 'photo',
+      ...fields,
+    })
+    .select()
+    .single();
+  return { place: data as Place | null, error };
 }
 
 // --- Moments helpers ---

@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import MapScreen from '../screens/map/MapScreen';
-import CameraScreen from '../screens/camera/CameraScreen';
+import PhotoSyncScreen from '../screens/sync/PhotoSyncScreen';
 import MemoriesScreen from '../screens/memories/MemoriesScreen';
 
 const Tab = createBottomTabNavigator();
@@ -31,9 +31,9 @@ export default function TabNavigator() {
         options={{ title: '地圖', tabBarIcon: icon('🗺️') }}
       />
       <Tab.Screen
-        name="Camera"
-        component={CameraScreen}
-        options={{ title: '拍照', tabBarIcon: icon('📷') }}
+        name="Sync"
+        component={PhotoSyncScreen}
+        options={{ title: '同步相簿', tabBarIcon: icon('🖼️') }}
       />
       <Tab.Screen
         name="Memories"

@@ -1,11 +1,9 @@
 export type User = {
   id: string;
   email: string | null;
-  apple_user_id: string | null;
   display_name: string | null;
   avatar_url: string | null;
   couple_id: string | null;
-  line_user_id: string | null;
   created_at: string;
 };
 
@@ -20,20 +18,21 @@ export type Couple = {
 
 export type Place = {
   id: string;
-  couple_id: string;
+  couple_id: string | null;
+  saved_by: string | null;
   name: string;
   address: string | null;
   lat: number;
   lng: number;
   category: 'food' | 'cafe' | 'attraction' | 'accommodation' | 'other';
   region: string | null;
-  notes: string | null;
+  note: string | null;        // column name in DB is 'note' (LINE Bot)
   visited: boolean;
-  is_spontaneous: boolean;
   visit_count: number;
   bloom_level: 0 | 1 | 2 | 3 | 4 | 5;
-  first_visited_at: string | null;
-  last_visited_at: string | null;
+  image_url: string | null;
+  source_type: string | null;
+  status: string | null;      // LINE Bot legacy: 'want-to-go' | 'visited'
   created_at: string;
 };
 
@@ -41,7 +40,7 @@ export type Moment = {
   id: string;
   place_id: string;
   user_id: string;
-  couple_id: string;
+  couple_id: string | null;
   image_url: string;
   thumbnail_url: string | null;
   lat: number | null;
@@ -49,7 +48,6 @@ export type Moment = {
   taken_at: string;
   ai_caption: string | null;
   ai_tags: string[] | null;
-  pair_id: string | null;
   companion_present: boolean;
   created_at: string;
 };

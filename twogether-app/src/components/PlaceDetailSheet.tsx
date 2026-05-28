@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import type { Place } from '../types';
 
 const CATEGORY_LABELS: Record<Place['category'], string> = {
@@ -38,7 +38,7 @@ export default function PlaceDetailSheet({ place, onClose }: Props) {
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{BLOOM_LABELS[place.bloom_level]}</Text>
           </View>
-          {place.visit_count > 0 && (
+          {(place.visit_count ?? 0) > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>造訪 {place.visit_count} 次</Text>
             </View>
@@ -46,7 +46,16 @@ export default function PlaceDetailSheet({ place, onClose }: Props) {
         </View>
 
         {place.address && <Text style={styles.address}>{place.address}</Text>}
-        {place.notes && <Text style={styles.notes}>{place.notes}</Text>}
+        {place.note && <Text style={styles.notes}>{place.note}</Text>}
+
+        {place.lat && place.lng && (
+          <TouchableOpacity
+            style={styles.mapsBtn}
+            onPress={() => Linking.openURL(`https://maps.google.com/?q=${place.lat},${place.lng}`)}
+          >
+            <Text style={styles.mapsBtnText}>在 Google Maps 開啟</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );
@@ -96,4 +105,12 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 12, color: '#5C7A5F', fontWeight: '500' },
   address: { fontSize: 13, color: '#8A8070', marginTop: 12, lineHeight: 18 },
   notes: { fontSize: 14, color: '#2D2A26', marginTop: 8, lineHeight: 20 },
+  mapsBtn: {
+    marginTop: 16,
+    backgroundColor: '#EEF3EF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  mapsBtnText: { fontSize: 14, color: '#5C7A5F', fontWeight: '600' },
 });
