@@ -88,7 +88,10 @@ function PlaceCard({ place }: { place: Place }) {
         {place.lat && place.lng && (
           <TouchableOpacity
             style={styles.mapsBtn}
-            onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(place.name)}&ll=${place.lat},${place.lng}`)}
+            onPress={() => {
+              const query = place.address ? `${place.name} ${place.address}` : place.name;
+              Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(query)}&ll=${place.lat},${place.lng}`);
+            }}
           >
             <Text style={styles.mapsBtnText}>在 Google Maps 開啟</Text>
           </TouchableOpacity>
