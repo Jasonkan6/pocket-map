@@ -6,11 +6,13 @@ import { useAuthStore } from '../stores/authStore';
 import LoginScreen from '../screens/auth/LoginScreen';
 import PairingScreen from '../screens/auth/PairingScreen';
 import TabNavigator from './TabNavigator';
+import WishlistAddScreen from '../screens/wishlist/WishlistAddScreen';
 
 export type RootStackParamList = {
   Login: undefined;
   Pairing: undefined;
   Main: undefined;
+  WishlistAdd: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -50,7 +52,14 @@ export default function RootNavigator() {
       ) : showPairing ? (
         <Stack.Screen name="Pairing" component={PairingScreen} />
       ) : (
-        <Stack.Screen name="Main" component={TabNavigator} />
+        <>
+          <Stack.Screen name="Main" component={TabNavigator} />
+          <Stack.Screen
+            name="WishlistAdd"
+            component={WishlistAddScreen}
+            options={{ presentation: 'modal' }}
+          />
+        </>
       )}
     </Stack.Navigator>
   );

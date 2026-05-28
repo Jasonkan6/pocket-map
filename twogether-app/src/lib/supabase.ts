@@ -103,23 +103,45 @@ export async function getPlaces(coupleId: string | null, userId: string): Promis
 export async function savePlace(
   userId: string,
   coupleId: string | null,
-  fields: Pick<Place, 'name' | 'category' | 'lat' | 'lng'> & Partial<Pick<Place, 'image_url' | 'region' | 'note'>>,
+  fields: Pick<Place, 'name' | 'category' | 'lat' | 'lng'> &
+    Partial<Pick<Place, 'image_url' | 'region' | 'note' | 'address' | 'visited' | 'source_type' | 'status'>>,
 ): Promise<{ place: Place | null; error: unknown }> {
   const { data, error } = await supabase
     .from('places')
     .insert({
       saved_by: userId,
       couple_id: coupleId,
-      visited: true,        // a synced photo / dropped pin is a place you've been
+      visited: true,        // default: a synced photo / dropped pin is a place you've been
       bloom_level: 0,
       visit_count: 0,
       status: 'visited',    // keep LINE-bot status field consistent
       source_type: 'photo',
-      ...fields,
+      ...fields,            // callers may override visited / status / source_type
     })
     .select()
     .single();
   return { place: data as Place | null, error };
+}
+
+// Decode base64 to bytes. On React Native, uploading a Blob/fetch result to
+// Supabase Storage yields a 0-byte file, so we upload a Uint8Array instead.
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// Upload a picked screenshot (base64) to the shared `screenshots` bucket; returns its public URL.
+export async function uploadScreenshot(userId: string, base64: string): Promise<string> {
+  const fileName = `twogether_${userId}_${Date.now()}.jpg`;
+  const { error } = await supabase.storage
+    .from('screenshots')
+    .upload(fileName, base64ToBytes(base64), { contentType: 'image/jpeg' });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from('screenshots').getPublicUrl(fileName);
+  return data.publicUrl;
 }
 
 // --- Moments helpers ---
