@@ -19,35 +19,52 @@ export default function PhotoSyncScreen() {
   const [photos, setPhotos] = useState<GeoPhoto[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState('');
   const [importing, setImporting] = useState(false);
 
   const scanPhotos = useCallback(async () => {
     setScanning(true);
     setPhotos([]);
     setSelected(new Set());
+    setScanProgress('');
+    const results: GeoPhoto[] = [];
     try {
-      const { assets } = await MediaLibrary.getAssetsAsync({
-        mediaType: MediaLibrary.MediaType.photo,
-        sortBy: MediaLibrary.SortBy.creationTime,
-        first: 50,
-      });
+      // Paginate through the entire album
+      let cursor: string | undefined;
+      let totalScanned = 0;
+      while (true) {
+        const page = await MediaLibrary.getAssetsAsync({
+          mediaType: MediaLibrary.MediaType.photo,
+          sortBy: MediaLibrary.SortBy.creationTime,
+          first: 100,
+          after: cursor,
+        });
 
-      const results: GeoPhoto[] = [];
-      for (const asset of assets) {
-        const info = await MediaLibrary.getAssetInfoAsync(asset.id);
-        if (info.location?.latitude && info.location?.longitude) {
-          results.push({
-            asset,
-            latitude: info.location.latitude,
-            longitude: info.location.longitude,
-          });
+        // Fetch location info in parallel batches of 10
+        const batchSize = 10;
+        for (let i = 0; i < page.assets.length; i += batchSize) {
+          const batch = page.assets.slice(i, i + batchSize);
+          const infos = await Promise.all(batch.map(a => MediaLibrary.getAssetInfoAsync(a.id)));
+          for (let j = 0; j < batch.length; j++) {
+            const info = infos[j];
+            if (info.location?.latitude && info.location?.longitude) {
+              results.push({ asset: batch[j], latitude: info.location.latitude, longitude: info.location.longitude });
+            }
+          }
         }
+
+        totalScanned += page.assets.length;
+        setScanProgress(`已掃描 ${totalScanned} 張，找到 ${results.length} 張有位置`);
+        setPhotos([...results]);
+
+        if (!page.hasNextPage) break;
+        cursor = page.endCursor;
       }
-      setPhotos(results);
     } catch (e) {
       Alert.alert('掃描失敗', String(e));
     } finally {
       setScanning(false);
+      setScanProgress('');
     }
   }, []);
 
@@ -123,7 +140,7 @@ export default function PhotoSyncScreen() {
       {scanning && (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#5C7A5F" />
-          <Text style={styles.scanningText}>掃描中...</Text>
+          <Text style={styles.scanningText}>{scanProgress || '掃描中...'}</Text>
         </View>
       )}
 
