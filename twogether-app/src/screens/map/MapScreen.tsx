@@ -1,11 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, Alert,
+  View, Text, TouchableOpacity,
   StyleSheet, ActivityIndicator, SafeAreaView,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import * as Location from 'expo-location';
-import { getPlaces, savePlace } from '../../lib/supabase';
+import { getPlaces } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import type { Place } from '../../types';
 import RegionGallerySheet from '../../components/RegionGallerySheet';
@@ -24,7 +23,6 @@ export default function MapScreen() {
   const { couple, profile, session } = useAuthStore();
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
   const [regionPlaces, setRegionPlaces] = useState<Place[] | null>(null);
   const [filter, setFilter] = useState<'all' | 'visited' | 'wishlist'>('all');
 
@@ -43,39 +41,6 @@ export default function MapScreen() {
   }, [couple, profile, session]);
 
   useFocusEffect(useCallback(() => { loadPlaces(); }, [loadPlaces]));
-
-  async function handleAddPlace() {
-    const userId = profile?.id ?? session?.user?.id;
-    if (!userId || adding) return;
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('需要定位權限', '請在設定中允許 Twogether 存取位置');
-      return;
-    }
-    setAdding(true);
-    try {
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      Alert.prompt(
-        '在這裡新增地點',
-        '輸入這個地方的名稱',
-        async (name) => {
-          if (!name?.trim()) return;
-          await savePlace(userId, couple?.id ?? null, {
-            name: name.trim(),
-            category: 'other',
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-          loadPlaces();
-        },
-        'plain-text',
-      );
-    } catch (e) {
-      Alert.alert('取得位置失敗', String(e));
-    } finally {
-      setAdding(false);
-    }
-  }
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#5C7A5F" /></View>;
@@ -127,12 +92,9 @@ export default function MapScreen() {
         )}
       </View>
 
-      {/* FAB — drop a pin at current GPS location */}
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('WishlistAdd')} disabled={adding}>
-        {adding
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.fabText}>＋</Text>
-        }
+      {/* FAB — add a wishlist place from a screenshot */}
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('WishlistAdd')}>
+        <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>
 
       {regionPlaces && (
