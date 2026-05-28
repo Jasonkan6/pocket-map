@@ -1,31 +1,42 @@
-const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
+const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? '';
 
-async function nominatimSearch(query: string): Promise<{ lat: number; lng: number } | null> {
-  const url = `${NOMINATIM}?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=tw`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Twogether-App/1.0' },
-  });
-  const data: Array<{ lat: string; lon: string }> = await res.json();
-  if (data.length === 0) return null;
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+type Geo = { lat: number; lng: number };
+
+async function googleGeocode(query: string): Promise<{ geo: Geo; approximate: boolean } | null> {
+  if (!GOOGLE_KEY) return null;
+  const url =
+    'https://maps.googleapis.com/maps/api/geocode/json' +
+    '?address=' + encodeURIComponent(query + ' 台灣') +
+    '&language=zh-TW&region=tw&key=' + GOOGLE_KEY;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.status !== 'OK' || !data.results?.length) {
+    if (data.status === 'REQUEST_DENIED') console.warn('Google Geocoding denied:', data.error_message);
+    return null;
+  }
+  const r = data.results[0];
+  return {
+    geo: { lat: r.geometry.location.lat, lng: r.geometry.location.lng },
+    // APPROXIMATE = Google only resolved to a city/region centroid, not the actual place.
+    approximate: r.geometry.location_type === 'APPROXIMATE',
+  };
 }
 
-// Try name first (so the pin matches the place name the user sees),
-// then name + address, then address alone.
-export async function geocodePlaceName(
-  name: string,
-  address: string | null,
-): Promise<{ lat: number; lng: number } | null> {
-  const r1 = await nominatimSearch(`${name} 台灣`);
-  if (r1) return r1;
+// Address-first (most precise), then name+address, then name. A precise hit wins
+// immediately; an APPROXIMATE (city-level) hit is only used if nothing better turns up.
+export async function geocodePlaceName(name: string, address: string | null): Promise<Geo | null> {
+  const queries = [
+    address,
+    address ? `${name} ${address}` : null,
+    name,
+  ].filter(Boolean) as string[];
 
-  if (address) {
-    const r2 = await nominatimSearch(`${name} ${address} 台灣`);
-    if (r2) return r2;
-
-    const r3 = await nominatimSearch(`${address} 台灣`);
-    if (r3) return r3;
+  let approxFallback: Geo | null = null;
+  for (const q of queries) {
+    const r = await googleGeocode(q);
+    if (!r) continue;
+    if (!r.approximate) return r.geo;
+    if (!approxFallback) approxFallback = r.geo;
   }
-
-  return null;
+  return approxFallback;
 }

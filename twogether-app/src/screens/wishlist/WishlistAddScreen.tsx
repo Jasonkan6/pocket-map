@@ -11,7 +11,19 @@ import { geocodePlaceName } from '../../lib/geocode';
 import { savePlace, uploadScreenshot } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 
-const FALLBACK_COORDS = { lat: 23.5, lng: 121.0 };
+// When geocoding fails, fall back to the centroid of the region Gemini detected
+// (better than dropping every unresolved pin in the dead-center of Taiwan).
+const REGION_CENTROIDS: Record<string, { lat: number; lng: number }> = {
+  north: { lat: 25.04, lng: 121.56 },
+  central: { lat: 24.14, lng: 120.68 },
+  south: { lat: 22.63, lng: 120.30 },
+  east: { lat: 23.99, lng: 121.60 },
+  unknown: { lat: 23.5, lng: 121.0 },
+};
+
+function fallbackCoords(region?: string) {
+  return REGION_CENTROIDS[region ?? 'unknown'] ?? REGION_CENTROIDS.unknown;
+}
 
 export default function WishlistAddScreen() {
   const navigation = useNavigation<any>();
@@ -66,13 +78,14 @@ export default function WishlistAddScreen() {
 
         const info = await extractPlaceFromScreenshot(manipulated.base64!);
         const imageUrl = await uploadScreenshot(userId, manipulated.base64!);
-        const coords = await geocodePlaceName(info.name, info.address || null);
+        const coords = await geocodePlaceName(info.name, info.address || null)
+          ?? fallbackCoords(info.region);
 
         const { error } = await savePlace(userId, couple?.id ?? null, {
           name: info.name,
           category: info.category ?? 'other',
-          lat: (coords ?? FALLBACK_COORDS).lat,
-          lng: (coords ?? FALLBACK_COORDS).lng,
+          lat: coords.lat,
+          lng: coords.lng,
           region: info.region ?? undefined,
           address: info.address || undefined,
           note: info.note || undefined,
