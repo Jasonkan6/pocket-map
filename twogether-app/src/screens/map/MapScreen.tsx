@@ -8,15 +8,23 @@ import * as Location from 'expo-location';
 import { getPlaces, savePlace } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import type { Place } from '../../types';
-import PlaceDetailSheet from '../../components/PlaceDetailSheet';
+import RegionGallerySheet from '../../components/RegionGallerySheet';
 import LeafletMap from '../../components/LeafletMap';
+
+const REGION_DEG = 0.5 / 111; // ~500m bounding box
+
+function getRegion(center: Place, all: Place[]): Place[] {
+  return all.filter(
+    p => Math.abs(p.lat - center.lat) <= REGION_DEG && Math.abs(p.lng - center.lng) <= REGION_DEG,
+  );
+}
 
 export default function MapScreen() {
   const { couple, profile, session } = useAuthStore();
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [selected, setSelected] = useState<Place | null>(null);
+  const [regionPlaces, setRegionPlaces] = useState<Place[] | null>(null);
   const [filter, setFilter] = useState<'all' | 'visited' | 'wishlist'>('all');
 
   const loadPlaces = useCallback(async () => {
@@ -100,7 +108,11 @@ export default function MapScreen() {
       <View style={styles.mapContainer}>
         <LeafletMap
           places={filtered}
-          onPlaceSelect={setSelected}
+          onPlaceSelect={(tapped) => {
+            const nearby = getRegion(tapped, places);
+            const ordered = [tapped, ...nearby.filter(p => p.id !== tapped.id)];
+            setRegionPlaces(ordered);
+          }}
           style={styles.map}
         />
         {filtered.length === 0 && (
@@ -122,8 +134,8 @@ export default function MapScreen() {
         }
       </TouchableOpacity>
 
-      {selected && (
-        <PlaceDetailSheet place={selected} onClose={() => setSelected(null)} />
+      {regionPlaces && (
+        <RegionGallerySheet places={regionPlaces} onClose={() => setRegionPlaces(null)} />
       )}
     </SafeAreaView>
   );
