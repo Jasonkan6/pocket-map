@@ -105,25 +105,21 @@ export async function savePlace(
   coupleId: string | null,
   fields: Pick<Place, 'name' | 'category' | 'lat' | 'lng'> & Partial<Pick<Place, 'image_url' | 'region' | 'note'>>,
 ): Promise<{ place: Place | null; error: unknown }> {
-  // Only insert columns that existed before migration to avoid PGRST204
-  // schema-cache errors when PostgREST hasn't reloaded yet.
-  // New columns (visited, bloom_level, visit_count, couple_id) are set via
-  // a follow-up UPDATE so the INSERT never fails due to a stale cache.
   const { data, error } = await supabase
     .from('places')
-    .insert({ saved_by: userId, source_type: 'photo', ...fields })
+    .insert({
+      saved_by: userId,
+      couple_id: coupleId,
+      visited: true,        // a synced photo / dropped pin is a place you've been
+      bloom_level: 0,
+      visit_count: 0,
+      status: 'visited',    // keep LINE-bot status field consistent
+      source_type: 'photo',
+      ...fields,
+    })
     .select()
     .single();
-
-  if (error || !data) return { place: null, error };
-
-  // Best-effort UPDATE for new columns — silently ignored if cache still stale
-  await supabase
-    .from('places')
-    .update({ visited: true, bloom_level: 0, visit_count: 0, couple_id: coupleId })
-    .eq('id', data.id);
-
-  return { place: data as Place, error: null };
+  return { place: data as Place | null, error };
 }
 
 // --- Moments helpers ---
