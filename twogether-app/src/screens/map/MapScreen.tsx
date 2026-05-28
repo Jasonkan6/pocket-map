@@ -80,6 +80,7 @@ export default function MapScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Filter bar */}
       <View style={styles.filterRow}>
         {(['all', 'visited', 'wishlist'] as const).map(f => (
           <TouchableOpacity
@@ -95,19 +96,23 @@ export default function MapScreen() {
         <Text style={styles.count}>{filtered.length} 個地點</Text>
       </View>
 
-      {filtered.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyIcon}>🌱</Text>
-          <Text style={styles.emptyTitle}>還沒有地點</Text>
-          <Text style={styles.emptyHint}>點右下角 ＋ 在目前位置新增地點，或前往「同步相簿」匯入照片</Text>
-        </View>
-      ) : (
+      {/* Map always renders — empty overlay shown when no places */}
+      <View style={styles.mapContainer}>
         <LeafletMap
           places={filtered}
           onPlaceSelect={setSelected}
           style={styles.map}
         />
-      )}
+        {filtered.length === 0 && (
+          <View style={styles.emptyOverlay} pointerEvents="none">
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyIcon}>🌱</Text>
+              <Text style={styles.emptyTitle}>還沒有地點</Text>
+              <Text style={styles.emptyHint}>點右下角 ＋ 新增，或前往「同步相簿」匯入</Text>
+            </View>
+          </View>
+        )}
+      </View>
 
       {/* FAB — drop a pin at current GPS location */}
       <TouchableOpacity style={styles.fab} onPress={handleAddPlace} disabled={adding}>
@@ -126,10 +131,7 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAF8' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingHorizontal: 32 },
-  emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#2D2A26' },
-  emptyHint: { fontSize: 13, color: '#8A8070', textAlign: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   filterRow: {
     flexDirection: 'row', gap: 8, padding: 12,
     alignItems: 'center', backgroundColor: '#FAFAF8',
@@ -142,7 +144,28 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, color: '#8A8070' },
   filterTextActive: { color: '#fff', fontWeight: '600' },
   count: { fontSize: 12, color: '#8A8070', marginLeft: 'auto' },
+  mapContainer: { flex: 1 },
   map: { flex: 1 },
+  emptyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyCard: {
+    backgroundColor: 'rgba(250,250,248,0.92)',
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  emptyIcon: { fontSize: 40 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#2D2A26' },
+  emptyHint: { fontSize: 13, color: '#8A8070', textAlign: 'center', maxWidth: 220 },
   fab: {
     position: 'absolute',
     bottom: 24,

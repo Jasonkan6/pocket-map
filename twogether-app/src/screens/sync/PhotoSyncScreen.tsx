@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, Image, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert, SafeAreaView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as MediaLibrary from 'expo-media-library';
 import { savePlace } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,6 +16,7 @@ type GeoPhoto = {
 };
 
 export default function PhotoSyncScreen() {
+  const navigation = useNavigation<any>();
   const { profile, couple, session } = useAuthStore();
   const [permission, requestPermission] = MediaLibrary.usePermissions();
   const [photos, setPhotos] = useState<GeoPhoto[]>([]);
@@ -102,8 +104,10 @@ export default function PhotoSyncScreen() {
         }
       }
       if (count > 0) {
-        Alert.alert('匯入完成', `成功匯入 ${count} 個地點，請切換到地圖查看`, [
-          { text: '好', onPress: () => { setSelected(new Set()); setPhotos([]); } },
+        setSelected(new Set());
+        setPhotos([]);
+        Alert.alert('匯入完成', `成功匯入 ${count} 個地點`, [
+          { text: '前往地圖', onPress: () => navigation.navigate('Map') },
         ]);
       } else {
         Alert.alert('匯入失敗', `錯誤：${JSON.stringify(lastError)}`);
@@ -142,7 +146,7 @@ export default function PhotoSyncScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>同步相簿</Text>
-        <Text style={styles.headerSub}>掃描最近 50 張照片，找出有 GPS 位置的</Text>
+        <Text style={styles.headerSub}>掃描全部照片，找出有 GPS 位置的</Text>
       </View>
 
       {photos.length === 0 && !scanning && (
