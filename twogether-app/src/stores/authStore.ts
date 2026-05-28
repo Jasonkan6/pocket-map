@@ -25,11 +25,27 @@ export const useAuthStore = create<AuthState>((set) => ({
   setSession: (session) => set({ session, isLoading: false }),
 
   loadProfile: async (userId) => {
-    const { data: profile } = await supabase
+    let { data: profile } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .single();
+
+    // Auto-create profile row for users who signed up before migration
+    if (!profile) {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('users').upsert({
+        id: userId,
+        email: user?.email ?? null,
+        display_name: user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? null,
+      });
+      const { data: created } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      profile = created;
+    }
 
     if (!profile) return;
     set({ profile: profile as User });
