@@ -73,7 +73,7 @@ export default function WishlistAddScreen() {
       setNote(info.note ?? '');
       setStep('review');
     } catch (e) {
-      Alert.alert('AI 分析失敗', '無法從這張截圖辨識地點，請換一張再試。');
+      Alert.alert('AI 分析失敗', String(e));
       setStep('pick');
     }
   }
