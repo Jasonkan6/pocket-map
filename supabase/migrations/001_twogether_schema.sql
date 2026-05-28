@@ -69,13 +69,13 @@ ALTER TABLE couples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE moments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "couples: members only" ON couples
+CREATE POLICY "couples: members only" ON couples
   FOR ALL USING (auth.uid() = user_a_id OR auth.uid() = user_b_id);
 
-CREATE POLICY IF NOT EXISTS "users: own profile" ON users
+CREATE POLICY "users: own profile" ON users
   FOR ALL USING (auth.uid() = id);
 
-CREATE POLICY IF NOT EXISTS "moments: own or couple" ON moments
+CREATE POLICY "moments: own or couple" ON moments
   FOR ALL USING (
     auth.uid() = user_id
     OR couple_id IN (
