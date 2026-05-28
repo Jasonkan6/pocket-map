@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, FlatList, Image, TouchableOpacity,
   StyleSheet, Linking, ListRenderItemInfo,
@@ -29,11 +29,20 @@ type Props = { places: Place[]; onClose: () => void };
 function PlaceCard({ place }: { place: Place }) {
   const date = new Date(place.created_at).toLocaleDateString('zh-TW');
   const bloomIdx = Math.min(place.bloom_level ?? 0, 5);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
 
   return (
     <View style={styles.card}>
       {place.image_url ? (
-        <Image source={{ uri: place.image_url }} style={styles.photo} resizeMode="cover" />
+        <Image
+          source={{ uri: place.image_url }}
+          style={[styles.photo, aspectRatio ? { height: undefined, aspectRatio } : null]}
+          resizeMode="contain"
+          onLoad={(e) => {
+            const { width, height } = e.nativeEvent.source;
+            if (width && height) setAspectRatio(width / height);
+          }}
+        />
       ) : (
         <View style={styles.photoPlaceholder}>
           <Text style={styles.placeholderEmoji}>{CATEGORY_EMOJI[place.category]}</Text>
@@ -147,7 +156,7 @@ const styles = StyleSheet.create({
   card: { paddingHorizontal: 20, paddingVertical: 16 },
   photo: {
     width: '100%',
-    height: 200,
+    height: 260,  // fallback until natural dimensions load
     borderRadius: 12,
     backgroundColor: '#EEF3EF',
     marginBottom: 12,
