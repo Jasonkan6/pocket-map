@@ -78,7 +78,7 @@ export default function WishlistAddScreen() {
 
         const info = await extractPlaceFromScreenshot(manipulated.base64!);
         const imageUrl = await uploadScreenshot(userId, manipulated.base64!);
-        const coords = await geocodePlaceName(info.name, info.address || null, info.region)
+        const coords = await geocodePlaceName(info.name, info.address || null)
           ?? fallbackCoords(info.region);
 
         const { error } = await savePlace(userId, couple?.id ?? null, {
