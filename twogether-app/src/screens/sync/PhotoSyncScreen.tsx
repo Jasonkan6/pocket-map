@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as MediaLibrary from 'expo-media-library';
-import { savePlace } from '../../lib/supabase';
+import { getPlaces, savePlace, updatePlace, saveMoment } from '../../lib/supabase';
+import { haversineMeters } from '../../lib/distance';
 import { useAuthStore } from '../../stores/authStore';
 
 type GeoPhoto = {
@@ -83,30 +84,68 @@ export default function PhotoSyncScreen() {
       return;
     }
     setImporting(true);
-    let count = 0;
+    let newCount = 0;
+    let matchCount = 0;
     let lastError: unknown = null;
     try {
+      // Load wishlist places once to check for proximity matches
+      const allPlaces = await getPlaces(couple?.id ?? null, userId);
+      const wishlistPlaces = allPlaces.filter(p => !p.visited);
+
       for (const id of selected) {
         const photo = photos.find(p => p.asset.id === id);
         if (!photo) continue;
-        const date = new Date(photo.asset.creationTime).toLocaleDateString('zh-TW');
-        const { error } = await savePlace(userId, couple?.id ?? null, {
-          name: `📸 ${date}`,
-          category: 'other',
-          lat: photo.latitude,
-          lng: photo.longitude,
-          image_url: photo.localUri,
-        });
-        if (!error) {
-          count++;
+
+        // Find the closest wishlist place within 200m
+        let bestMatch: (typeof wishlistPlaces)[0] | null = null;
+        let bestDist = 200;
+        for (const place of wishlistPlaces) {
+          const dist = haversineMeters(photo.latitude, photo.longitude, place.lat, place.lng);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestMatch = place;
+          }
+        }
+
+        if (bestMatch) {
+          const { error } = await updatePlace(bestMatch.id, {
+            visited: true,
+            status: 'visited',
+            image_url: photo.localUri,
+            visit_count: (bestMatch.visit_count ?? 0) + 1,
+          });
+          if (!error) {
+            await saveMoment(
+              bestMatch.id, userId, couple?.id ?? null,
+              photo.localUri, photo.latitude, photo.longitude,
+              new Date(photo.asset.creationTime).toISOString(),
+            );
+            matchCount++;
+          } else {
+            lastError = error;
+          }
         } else {
-          lastError = error;
+          const date = new Date(photo.asset.creationTime).toLocaleDateString('zh-TW');
+          const { error } = await savePlace(userId, couple?.id ?? null, {
+            name: `📸 ${date}`,
+            category: 'other',
+            lat: photo.latitude,
+            lng: photo.longitude,
+            image_url: photo.localUri,
+          });
+          if (!error) newCount++;
+          else lastError = error;
         }
       }
-      if (count > 0) {
+
+      const total = newCount + matchCount;
+      if (total > 0) {
         setSelected(new Set());
         setPhotos([]);
-        Alert.alert('匯入完成', `成功匯入 ${count} 個地點`, [
+        const parts: string[] = [];
+        if (newCount > 0) parts.push(`✅ ${newCount} 個新地點`);
+        if (matchCount > 0) parts.push(`🗺 ${matchCount} 個想去地點已更新`);
+        Alert.alert('匯入完成', parts.join('　'), [
           { text: '前往地圖', onPress: () => navigation.navigate('Map') },
         ]);
       } else {

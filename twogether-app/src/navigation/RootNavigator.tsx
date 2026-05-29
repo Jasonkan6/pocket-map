@@ -8,6 +8,7 @@ import PairingScreen from '../screens/auth/PairingScreen';
 import TabNavigator from './TabNavigator';
 import WishlistAddScreen from '../screens/wishlist/WishlistAddScreen';
 import PlaceEditScreen from '../screens/wishlist/PlaceEditScreen';
+import AddVisitPhotoScreen from '../screens/wishlist/AddVisitPhotoScreen';
 import type { Place } from '../types';
 
 export type RootStackParamList = {
@@ -16,6 +17,7 @@ export type RootStackParamList = {
   Main: undefined;
   WishlistAdd: undefined;
   PlaceEdit: { place: Place };
+  AddVisitPhoto: { place: Place };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -65,6 +67,11 @@ export default function RootNavigator() {
           <Stack.Screen
             name="PlaceEdit"
             component={PlaceEditScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="AddVisitPhoto"
+            component={AddVisitPhotoScreen}
             options={{ presentation: 'modal' }}
           />
         </>

@@ -125,7 +125,7 @@ export async function savePlace(
 
 export async function updatePlace(
   placeId: string,
-  fields: Partial<Pick<Place, 'name' | 'category' | 'lat' | 'lng' | 'region' | 'note' | 'address' | 'visited' | 'status'>>,
+  fields: Partial<Pick<Place, 'name' | 'category' | 'lat' | 'lng' | 'region' | 'note' | 'address' | 'visited' | 'status' | 'image_url' | 'visit_count'>>,
 ): Promise<{ error: unknown }> {
   const { error } = await supabase.from('places').update(fields).eq('id', placeId);
   return { error };
@@ -158,6 +158,28 @@ export async function uploadScreenshot(userId: string, base64: string): Promise<
 }
 
 // --- Moments helpers ---
+
+export async function saveMoment(
+  placeId: string,
+  userId: string,
+  coupleId: string | null,
+  imageUrl: string,
+  lat: number | null,
+  lng: number | null,
+  takenAt: string,
+): Promise<{ error: unknown }> {
+  const { error } = await supabase.from('moments').insert({
+    place_id: placeId,
+    user_id: userId,
+    couple_id: coupleId,
+    image_url: imageUrl,
+    lat,
+    lng,
+    taken_at: takenAt,
+    companion_present: false,
+  });
+  return { error };
+}
 
 export async function getMomentsForPlace(placeId: string): Promise<Moment[]> {
   const { data, error } = await supabase

@@ -24,15 +24,17 @@ type Props = {
   onClose: () => void;
   onEdit: (place: Place) => void;
   onDelete: (place: Place) => void;
+  onAddPhoto: (place: Place) => void;
 };
 
-export default function RegionGallerySheet({ places, onClose, onEdit, onDelete }: Props) {
+export default function RegionGallerySheet({ places, onClose, onEdit, onDelete, onAddPhoto }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const current = places[currentIndex] ?? places[0];
   const showDots = places.length > 1;
 
   const date = new Date(current.created_at).toLocaleDateString('zh-TW');
   const bloomIdx = Math.min(current.bloom_level ?? 0, 5);
+  const isWishlist = !current.visited;
 
   return (
     <View style={styles.sheet}>
@@ -49,7 +51,7 @@ export default function RegionGallerySheet({ places, onClose, onEdit, onDelete }
         </TouchableOpacity>
       </View>
 
-      {/* Photo carousel — full-width swiper */}
+      {/* Photo carousel */}
       <FlatList
         data={places}
         keyExtractor={item => item.id}
@@ -61,17 +63,19 @@ export default function RegionGallerySheet({ places, onClose, onEdit, onDelete }
           setCurrentIndex(idx);
         }}
         renderItem={({ item }) => (
-          item.image_url ? (
-            <Image
-              source={{ uri: item.image_url }}
-              style={styles.photo}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.photo, styles.photoPlaceholder]}>
-              <Text style={styles.placeholderEmoji}>{CATEGORY_EMOJI[item.category]}</Text>
-            </View>
-          )
+          <View style={styles.photoWrapper}>
+            {item.image_url ? (
+              <Image source={{ uri: item.image_url }} style={styles.photo} resizeMode="cover" />
+            ) : (
+              <View style={[styles.photo, styles.photoPlaceholder]}>
+                <Text style={styles.placeholderEmoji}>{CATEGORY_EMOJI[item.category]}</Text>
+              </View>
+            )}
+            {/* Amber overlay for wishlist places — signals "not yet visited" */}
+            {!item.visited && (
+              <View style={styles.wishlistOverlay} pointerEvents="none" />
+            )}
+          </View>
         )}
       />
 
@@ -85,22 +89,20 @@ export default function RegionGallerySheet({ places, onClose, onEdit, onDelete }
       )}
 
       {/* Info — synced to current photo */}
-      <View style={styles.info}>
+      <View style={[styles.info, isWishlist && styles.infoWishlist]}>
         <Text style={styles.placeMeta}>
           {date} · {(current.region ? (REGION_LABELS[current.region] ?? current.region) : null) ?? CATEGORY_LABELS[current.category]}
         </Text>
 
         <View style={styles.badges}>
           <View style={[styles.badge, current.visited ? styles.visitedBadge : styles.wishlistBadge]}>
-            <Text style={styles.badgeText}>{current.visited ? '去過' : '想去'}</Text>
+            <Text style={[styles.badgeText, current.visited ? styles.visitedBadgeText : styles.wishlistBadgeText]}>
+              {current.visited ? '✓ 去過' : '⭐ 想去'}
+            </Text>
           </View>
-          {current.visited ? (
+          {current.visited && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{BLOOM_EMOJIS[bloomIdx]} {BLOOM_LABELS[bloomIdx]}</Text>
-            </View>
-          ) : (
-            <View style={[styles.badge, styles.starBadge]}>
-              <Text style={styles.badgeText}>⭐ 收藏中</Text>
             </View>
           )}
           {(current.visit_count ?? 0) > 0 && (
@@ -121,6 +123,13 @@ export default function RegionGallerySheet({ places, onClose, onEdit, onDelete }
             }}
           >
             <Text style={styles.mapsBtnText}>在 Google Maps 開啟</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* "Add my photos" — only for wishlist places */}
+        {isWishlist && (
+          <TouchableOpacity style={styles.addPhotoBtn} onPress={() => onAddPhoto(current)}>
+            <Text style={styles.addPhotoBtnText}>📷 加入我的照片</Text>
           </TouchableOpacity>
         )}
 
@@ -158,26 +167,39 @@ const styles = StyleSheet.create({
   pageCounter: { fontSize: 13, color: '#8A8070', fontWeight: '500' },
   closeBtn: { padding: 4 },
   closeText: { fontSize: 16, color: '#8A8070' },
-  photo: { width: SCREEN_WIDTH, height: 260, backgroundColor: '#EEF3EF' },
+  photoWrapper: { width: SCREEN_WIDTH, height: 260 },
+  photo: { width: '100%', height: '100%', backgroundColor: '#EEF3EF' },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   placeholderEmoji: { fontSize: 56 },
+  wishlistOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(251, 211, 141, 0.22)',
+  },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 10 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#E0D9CE' },
   dotActive: { width: 18, backgroundColor: '#5C7A5F' },
   info: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 28, gap: 8 },
+  infoWishlist: { backgroundColor: '#FFFDF5' },
   placeMeta: { fontSize: 13, color: '#8A8070' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   badge: { backgroundColor: '#EEF3EF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   visitedBadge: { backgroundColor: '#EEF3EF' },
-  wishlistBadge: { backgroundColor: '#F3F0E8' },
-  starBadge: { backgroundColor: '#FFF8E1' },
+  wishlistBadge: { backgroundColor: '#FFF3CD' },
   badgeText: { fontSize: 12, color: '#5C7A5F', fontWeight: '500' },
+  visitedBadgeText: { color: '#5C7A5F' },
+  wishlistBadgeText: { color: '#B8860B' },
   note: { fontSize: 14, color: '#2D2A26', lineHeight: 20 },
   mapsBtn: {
     backgroundColor: '#EEF3EF', borderRadius: 10,
     paddingVertical: 12, alignItems: 'center',
   },
   mapsBtnText: { fontSize: 14, color: '#5C7A5F', fontWeight: '600' },
+  addPhotoBtn: {
+    backgroundColor: '#FFF3CD', borderRadius: 10,
+    paddingVertical: 12, alignItems: 'center',
+    borderWidth: 1, borderColor: '#F0C040',
+  },
+  addPhotoBtnText: { fontSize: 14, color: '#B8860B', fontWeight: '600' },
   actionRow: { flexDirection: 'row', gap: 10 },
   actionBtn: {
     flex: 1, backgroundColor: '#F0EBE3',

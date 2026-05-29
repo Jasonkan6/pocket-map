@@ -74,6 +74,11 @@ export default function MapScreen() {
     navigation.navigate('PlaceEdit', { place });
   }
 
+  function handleAddPhoto(place: Place) {
+    setRegionPlaces(null);
+    navigation.navigate('AddVisitPhoto', { place });
+  }
+
   function handleDelete(place: Place) {
     Alert.alert('刪除地點', `確定要刪除「${place.name}」嗎？`, [
       { text: '取消', style: 'cancel' },
@@ -173,6 +178,7 @@ export default function MapScreen() {
           onClose={() => setRegionPlaces(null)}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onAddPhoto={handleAddPhoto}
         />
       )}
     </SafeAreaView>
