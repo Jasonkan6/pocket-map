@@ -9,6 +9,7 @@
     "@supabase/supabase-js": "^2.106.2",
     "expo": "~54.0.0",
     "expo-camera": "~17.0.0",
+    "expo-image": "~2.0.0",
     "expo-image-manipulator": "~14.0.0",
     "expo-image-picker": "~17.0.11",
     "expo-media-library": "~18.2.1",

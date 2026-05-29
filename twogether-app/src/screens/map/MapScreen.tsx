@@ -4,6 +4,7 @@ import {
   StyleSheet, ActivityIndicator, SafeAreaView, Animated,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
 import { getPlaces, deletePlace } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useProcessingStore } from '../../stores/processingStore';
@@ -38,6 +39,9 @@ export default function MapScreen() {
     try {
       const data = await getPlaces(couple?.id ?? null, userId);
       setPlaces(data);
+      // Prefetch all place images into the disk cache so the gallery
+      // sheet shows them instantly when the user taps a pin.
+      data.forEach(p => { if (p.image_url) Image.prefetch(p.image_url); });
     } catch (e) {
       console.error(e);
     } finally {
