@@ -98,8 +98,10 @@ function PlaceCard({ place, onEdit, onDelete }: {
           <TouchableOpacity
             style={styles.mapsBtn}
             onPress={() => {
+              // Modern Maps URL: searches Google's POI DB and lands on the actual
+              // business — same query that placed the pin, so they stay consistent.
               const query = place.address ? `${place.name} ${place.address}` : place.name;
-              Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(query)}&ll=${place.lat},${place.lng}`);
+              Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`);
             }}
           >
             <Text style={styles.mapsBtnText}>在 Google Maps 開啟</Text>

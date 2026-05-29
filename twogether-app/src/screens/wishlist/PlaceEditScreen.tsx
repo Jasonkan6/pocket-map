@@ -49,7 +49,7 @@ export default function PlaceEditScreen() {
 
       // Re-geocode only when the user asks for it (e.g. to fix a wrong pin).
       if (reLocate) {
-        const coords = await geocodePlaceName(name.trim(), address.trim() || null);
+        const coords = await geocodePlaceName(name.trim(), address.trim() || null, place.region);
         if (coords) {
           fields.lat = coords.lat;
           fields.lng = coords.lng;
