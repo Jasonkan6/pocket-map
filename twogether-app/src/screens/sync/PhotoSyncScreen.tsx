@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as MediaLibrary from 'expo-media-library';
-import { getPlaces, savePlace, updatePlace, saveMoment } from '../../lib/supabase';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { getPlaces, savePlace, updatePlace, saveMoment, uploadScreenshot } from '../../lib/supabase';
 import { haversineMeters } from '../../lib/distance';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -107,17 +108,29 @@ export default function PhotoSyncScreen() {
           }
         }
 
+        // Upload to cloud storage so the URL is shareable with partner
+        let cloudUrl: string;
+        try {
+          const compressed = await ImageManipulator.manipulateAsync(
+            photo.localUri, [], { compress: 0.8, base64: true },
+          );
+          cloudUrl = await uploadScreenshot(userId, compressed.base64!);
+        } catch (uploadErr) {
+          lastError = uploadErr;
+          continue;
+        }
+
         if (bestMatch) {
           const { error } = await updatePlace(bestMatch.id, {
             visited: true,
             status: 'visited',
-            image_url: photo.localUri,
+            image_url: cloudUrl,
             visit_count: (bestMatch.visit_count ?? 0) + 1,
           });
           if (!error) {
             await saveMoment(
               bestMatch.id, userId, couple?.id ?? null,
-              photo.localUri, photo.latitude, photo.longitude,
+              cloudUrl, photo.latitude, photo.longitude,
               new Date(photo.asset.creationTime).toISOString(),
             );
             matchCount++;
@@ -131,7 +144,7 @@ export default function PhotoSyncScreen() {
             category: 'other',
             lat: photo.latitude,
             lng: photo.longitude,
-            image_url: photo.localUri,
+            image_url: cloudUrl,
           });
           if (!error) newCount++;
           else lastError = error;
