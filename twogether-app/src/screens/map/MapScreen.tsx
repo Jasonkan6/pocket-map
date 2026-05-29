@@ -4,7 +4,7 @@ import {
   StyleSheet, ActivityIndicator, SafeAreaView, Animated,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Image } from 'expo-image';
+import { Image } from 'react-native';
 import { getPlaces, deletePlace } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useProcessingStore } from '../../stores/processingStore';

@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity,
+  View, Text, FlatList, Image, TouchableOpacity,
   StyleSheet, Linking, Dimensions,
 } from 'react-native';
-import { Image } from 'expo-image';
 import type { Place } from '../types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -64,11 +63,9 @@ export default function RegionGallerySheet({ places, onClose, onEdit, onDelete }
         renderItem={({ item }) => (
           item.image_url ? (
             <Image
-              source={item.image_url}
+              source={{ uri: item.image_url }}
               style={styles.photo}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              transition={150}
+              resizeMode="cover"
             />
           ) : (
             <View style={[styles.photo, styles.photoPlaceholder]}>
