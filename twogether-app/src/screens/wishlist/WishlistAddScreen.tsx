@@ -78,8 +78,9 @@ export default function WishlistAddScreen() {
 
         const info = await extractPlaceFromScreenshot(manipulated.base64!);
         const imageUrl = await uploadScreenshot(userId, manipulated.base64!);
-        const coords = await geocodePlaceName(info.name, info.address || null)
-          ?? fallbackCoords(info.region);
+        const geocoded = await geocodePlaceName(info.name, info.address || null);
+        const coords = geocoded ?? fallbackCoords(info.region);
+        console.log('[wishlist] photo', i + 1, '| geocoded:', geocoded ? `${geocoded.lat},${geocoded.lng}` : '❌ null → using centroid', coords);
 
         const { error } = await savePlace(userId, couple?.id ?? null, {
           name: info.name,

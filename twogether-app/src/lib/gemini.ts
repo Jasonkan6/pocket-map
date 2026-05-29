@@ -47,5 +47,8 @@ export async function extractPlaceFromScreenshot(
   const data = await response.json();
   const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
   const clean = raw.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean) as ExtractedPlace;
+  console.log('[gemini] raw extracted JSON:', clean);
+  const result = JSON.parse(clean) as ExtractedPlace;
+  console.log('[gemini] ✅ name:', result.name, '| address:', result.address, '| region:', result.region);
+  return result;
 }
