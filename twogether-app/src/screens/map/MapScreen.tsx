@@ -51,9 +51,11 @@ export default function MapScreen() {
   useEffect(() => {
     if (!completedResult) return;
     loadPlaces();
-    const msg = completedResult.failed === 0
-      ? `✅ 已新增 ${completedResult.success} 個想去地點`
-      : `✅ ${completedResult.success} 個成功　❌ ${completedResult.failed} 個無法辨識`;
+    const { success, failed, skipped } = completedResult;
+    const parts = [`✅ 已新增 ${success} 個`];
+    if (skipped > 0) parts.push(`⏭ ${skipped} 個重複`);
+    if (failed > 0) parts.push(`❌ ${failed} 個失敗`);
+    const msg = parts.join('　');
     setToastMsg(msg);
     clearResult();
     Animated.sequence([

@@ -104,7 +104,7 @@ export async function savePlace(
   userId: string,
   coupleId: string | null,
   fields: Pick<Place, 'name' | 'category' | 'lat' | 'lng'> &
-    Partial<Pick<Place, 'image_url' | 'region' | 'note' | 'address' | 'visited' | 'source_type' | 'status'>>,
+    Partial<Pick<Place, 'image_url' | 'region' | 'note' | 'address' | 'visited' | 'source_type' | 'status' | 'google_place_id'>>,
 ): Promise<{ place: Place | null; error: unknown }> {
   const { data, error } = await supabase
     .from('places')

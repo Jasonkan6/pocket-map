@@ -33,6 +33,7 @@ export type Place = {
   image_url: string | null;
   source_type: string | null;
   status: string | null;      // LINE Bot legacy: 'want-to-go' | 'visited'
+  google_place_id: string | null;
   created_at: string;
 };
 

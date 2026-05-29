@@ -3,7 +3,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { extractPlaceFromScreenshot } from '../lib/gemini';
 import { geocodePlaceName } from '../lib/geocode';
-import { savePlace, uploadScreenshot } from '../lib/supabase';
+import { getPlaces, savePlace, uploadScreenshot } from '../lib/supabase';
 
 const REGION_CENTROIDS: Record<string, { lat: number; lng: number }> = {
   north:   { lat: 25.04, lng: 121.56 },
@@ -13,7 +13,7 @@ const REGION_CENTROIDS: Record<string, { lat: number; lng: number }> = {
   unknown: { lat: 23.5,  lng: 121.0  },
 };
 
-type Result = { success: number; failed: number };
+type Result = { success: number; failed: number; skipped: number };
 
 type ProcessingState = {
   isProcessing: boolean;
@@ -39,6 +39,20 @@ export const useProcessingStore = create<ProcessingState>((set) => ({
     (async () => {
       let success = 0;
       let failed = 0;
+      let skipped = 0;
+
+      // Fetch the couple's existing places once to build the dedup set.
+      let existingPlaceIds: Set<string>;
+      try {
+        const existing = await getPlaces(coupleId, userId);
+        existingPlaceIds = new Set(
+          existing.map(p => p.google_place_id).filter(Boolean) as string[],
+        );
+        console.log('[processing] loaded', existing.length, 'existing places,',
+          existingPlaceIds.size, 'with Google Place IDs');
+      } catch {
+        existingPlaceIds = new Set();
+      }
 
       for (let i = 0; i < assets.length; i++) {
         try {
@@ -49,12 +63,18 @@ export const useProcessingStore = create<ProcessingState>((set) => ({
           );
 
           const info = await extractPlaceFromScreenshot(manipulated.base64!);
-          const imageUrl = await uploadScreenshot(userId, manipulated.base64!);
           const geocoded = await geocodePlaceName(info.name, info.address || null);
+
+          // Dedup: skip if this Google Place ID is already in the couple's list.
+          if (geocoded && existingPlaceIds.has(geocoded.placeId)) {
+            console.log('[processing] ⏭ duplicate, skipping:', info.name, geocoded.placeId);
+            skipped++;
+            set(s => ({ done: s.done + 1 }));
+            continue;
+          }
+
           const coords = geocoded ?? (REGION_CENTROIDS[info.region] ?? REGION_CENTROIDS.unknown);
-          console.log('[processing] photo', i + 1, '| geocoded:', geocoded
-            ? `${geocoded.lat.toFixed(4)},${geocoded.lng.toFixed(4)}`
-            : '❌ using centroid');
+          const imageUrl = await uploadScreenshot(userId, manipulated.base64!);
 
           const { error } = await savePlace(userId, coupleId, {
             name: info.name,
@@ -65,20 +85,25 @@ export const useProcessingStore = create<ProcessingState>((set) => ({
             address: info.address || undefined,
             note: info.note || undefined,
             image_url: imageUrl,
+            google_place_id: geocoded?.placeId ?? null,
             visited: false,
             status: 'want-to-go',
             source_type: 'screenshot',
           });
           if (error) throw error;
+
+          // Add to the local set so subsequent photos in the same batch are also deduped.
+          if (geocoded) existingPlaceIds.add(geocoded.placeId);
+          console.log('[processing] ✅ saved:', info.name);
           success++;
         } catch (e) {
-          console.error('[processing] photo', i + 1, 'failed:', e);
+          console.error('[processing] ❌ photo', i + 1, 'failed:', e);
           failed++;
         }
         set(s => ({ done: s.done + 1 }));
       }
 
-      set({ isProcessing: false, completedResult: { success, failed } });
+      set({ isProcessing: false, completedResult: { success, failed, skipped } });
     })();
   },
 }));

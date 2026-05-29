@@ -1,9 +1,13 @@
 const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? '';
 
-type Geo = { lat: number; lng: number };
+export type GeoResult = {
+  lat: number;
+  lng: number;
+  placeId: string;
+};
 
 // Search Google's POI database — same source as typing into the Google Maps app.
-async function placesTextSearch(query: string): Promise<Geo | null> {
+async function placesTextSearch(query: string): Promise<GeoResult | null> {
   if (!GOOGLE_KEY) {
     console.warn('[geocode] ❌ EXPO_PUBLIC_GOOGLE_MAPS_KEY is not set — cannot geocode');
     return null;
@@ -20,13 +24,13 @@ async function placesTextSearch(query: string): Promise<Geo | null> {
     data.error_message ? '| error: ' + data.error_message : '');
 
   if (data.status !== 'OK' || !data.results?.length) return null;
-  const loc = data.results[0].geometry.location;
-  console.log('[geocode] ✅ resolved to:', loc.lat, loc.lng, '|', data.results[0].name);
-  return { lat: loc.lat, lng: loc.lng };
+  const r = data.results[0];
+  console.log('[geocode] ✅', r.name, r.geometry.location.lat, r.geometry.location.lng, '| placeId:', r.place_id);
+  return { lat: r.geometry.location.lat, lng: r.geometry.location.lng, placeId: r.place_id };
 }
 
 // Try address first (more specific), then name. Both are Taiwan-biased.
-export async function geocodePlaceName(name: string, address: string | null): Promise<Geo | null> {
+export async function geocodePlaceName(name: string, address: string | null): Promise<GeoResult | null> {
   if (address) {
     const r = await placesTextSearch(address + ' 台灣');
     if (r) return r;
