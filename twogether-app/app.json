@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Twogether",
+    "slug": "twogether-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FAFAF8"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.twogether.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "需要位置來記錄你們的回憶在哪裡",
+        "NSCameraUsageDescription": "需要相機來拍下你們的回憶",
+        "NSPhotoLibraryUsageDescription": "需要存取相片庫來上傳照片"
+      }
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-location"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
